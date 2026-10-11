@@ -1,0 +1,15 @@
+openapi: 3.1.0
+info: { title: Legit Hair Backend, version: 0.1.0 }
+servers: [{ url: 'http://127.0.0.1:3000' }]
+paths:
+  /health:
+    get:
+      summary: Process liveness
+      responses:
+        '200': { description: Process is healthy }
+  /ready:
+    get:
+      summary: Dependency readiness
+      responses:
+        '200': { description: MariaDB is available }
+        '503': { description: MariaDB is unavailable }
