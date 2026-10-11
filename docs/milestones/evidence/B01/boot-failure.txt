@@ -1,0 +1,7 @@
+Command: node dist/server.js (required application variables intentionally absent)
+Date: 2026-10-11 (Africa/Lagos)
+Exit: 1 (expected)
+
+Invalid application configuration: NODE_ENV, PORT, DATABASE_HOST, DATABASE_USER, DATABASE_PASSWORD, DATABASE_NAME
+
+No configuration values or secrets were printed.

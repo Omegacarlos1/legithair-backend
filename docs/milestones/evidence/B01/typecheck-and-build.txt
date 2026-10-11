@@ -1,0 +1,9 @@
+Commands: npm run typecheck; npm run build
+Date: 2026-10-11 (Africa/Lagos)
+Exit: 0 for both commands
+
+> legit-hair-backend@0.1.0 typecheck
+> tsc --noEmit
+
+> legit-hair-backend@0.1.0 build
+> tsc -p tsconfig.build.json

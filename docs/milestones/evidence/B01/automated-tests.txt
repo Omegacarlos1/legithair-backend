@@ -1,0 +1,15 @@
+Command: npm test
+Date: 2026-10-11 (Africa/Lagos)
+Exit: 0
+
+Unit: 2 passing
+- configuration fails without required values and omits supplied secret
+- valid configuration parses with defaults
+
+API: 4 passing
+- health and request ID
+- database-ready response
+- database-unavailable 503 without error leakage
+- unknown-route error envelope
+
+Note: tests were run outside the filesystem sandbox because Node.js 24.19.0 `os.userInfo()` returned Windows ENOMEM inside the sandbox. The same command completed normally outside it.

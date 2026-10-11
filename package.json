@@ -1,0 +1,45 @@
+{
+  "name": "legit-hair-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Legit Hair marketplace backend",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:api",
+    "test:unit": "mocha --require tsx/cjs \"test/unit/**/*.test.ts\"",
+    "test:api": "mocha --require tsx/cjs \"test/api/**/*.test.ts\"",
+    "test:integration": "mocha --require tsx/cjs \"test/integration/**/*.test.ts\"",
+    "migrate": "tsx src/database/migrate.ts up",
+    "migrate:down": "tsx src/database/migrate.ts down",
+    "seed:test": "tsx scripts/seed-test.ts"
+  },
+  "dependencies": {
+    "dotenv": "18.0.7",
+    "express": "5.3.0",
+    "mysql2": "3.24.5",
+    "pino": "10.4.0",
+    "pino-http": "11.0.0",
+    "zod": "4.6.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/express": "5.0.6",
+    "@types/mocha": "10.0.10",
+    "@types/node": "26.6.5",
+    "@types/supertest": "7.2.1",
+    "eslint": "10.12.0",
+    "mocha": "12.0.3",
+    "supertest": "7.3.1",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1"
+  }
+}
