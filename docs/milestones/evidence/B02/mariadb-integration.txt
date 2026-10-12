@@ -1,0 +1,7 @@
+Date: 2026-10-12 (Africa/Lagos)
+Command: npm run test:integration
+Database: XAMPP MariaDB, isolated legit_hair_test schema
+Secrets: omitted
+Result: 12 passed, 0 failed, 0 skipped
+
+Covered invalid/duplicate registration, a concurrent duplicate race, expired verification/reset tokens, verified login, unauthenticated access, cross-customer address denial, refresh rotation and replay-family revocation, single-use reset, session revocation, logout, fake email delivery/retry, and clean B01-B02 migrations.

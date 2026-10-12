@@ -1,0 +1,10 @@
+Date: 2026-10-12 (Africa/Lagos)
+
+PASS npm run migrate against XAMPP development database legit_hair_app
+PASS npm run seed:test against isolated legit_hair_test
+
+Synthetic fixture IDs:
+- customer: 10000000-0000-4000-8000-000000000001
+- admin: 10000000-0000-4000-8000-000000000002
+
+Fixture credentials are development-only and are documented in the Postman environment. No live personal data or provider credentials were used.

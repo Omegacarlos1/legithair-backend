@@ -1,5 +1,5 @@
 {
-  "info": { "name": "Legit Hair Backend B01", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "info": { "name": "Legit Hair Backend B01-B02", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
   "item": [
     {
       "name": "Health - positive",
@@ -15,6 +15,36 @@
       "name": "Ready - negative when MariaDB is stopped",
       "request": { "method": "GET", "url": "{{baseUrl}}/ready" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 503', () => pm.response.to.have.status(503));", "pm.test('safe error', () => { const b=pm.response.json(); pm.expect(b.error.code).to.eql('SERVICE_UNAVAILABLE'); pm.expect(pm.response.text()).not.to.include('DATABASE_PASSWORD'); });" ] } }]
+    },
+    {
+      "name": "B02 Register - positive",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{$randomUUID}}@example.test\",\"password\":\"ValidPass123!\",\"displayName\":\"Postman Customer\"}" }, "url": "{{baseUrl}}/api/v1/auth/register" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('user fixture returned', () => pm.expect(pm.response.json().data.userId).to.be.a('string'));" ] } }]
+    },
+    {
+      "name": "B02 Register - invalid",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"invalid\",\"password\":\"short\",\"displayName\":\"\"}" }, "url": "{{baseUrl}}/api/v1/auth/register" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 400', () => pm.response.to.have.status(400));", "pm.test('validation envelope', () => pm.expect(pm.response.json().error.code).to.eql('VALIDATION_ERROR'));" ] } }]
+    },
+    {
+      "name": "B02 Login seeded customer",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{fixtureEmail}}\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('accessToken', b.data.tokens.accessToken); pm.environment.set('refreshToken', b.data.tokens.refreshToken); pm.environment.set('customerId', b.data.user.id);" ] } }]
+    },
+    {
+      "name": "B02 Me - positive",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/me" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('own fixture', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.environment.get('customerId')));" ] } }]
+    },
+    {
+      "name": "B02 Me - unauthenticated",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/me" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 401', () => pm.response.to.have.status(401));", "pm.test('unauthenticated', () => pm.expect(pm.response.json().error.code).to.eql('UNAUTHENTICATED'));" ] } }]
+    },
+    {
+      "name": "B02 Other customer's addresses - forbidden",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/users/{{otherCustomerId}}/addresses" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('forbidden', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));" ] } }]
     }
   ]
 }

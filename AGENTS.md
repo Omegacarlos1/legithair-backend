@@ -8,9 +8,9 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 ## Current milestone
 
-CURRENT_MILESTONE: B01
-STATUS: ACCEPTED
-All B02–B12 milestones are NOT_STARTED. No implementation or tests were performed when this planning pack was created.
+CURRENT_MILESTONE: B02
+STATUS: LOCAL_VERIFIED
+All B03–B12 milestones are NOT_STARTED.
 
 ## Decisions before dependent implementation
 
