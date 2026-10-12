@@ -1,0 +1,10 @@
+Commands: npm run test:integration; npm run migrate:down; npm run migrate; npm run seed:test
+Date: 2026-10-11 (Africa/Lagos)
+Database: XAMPP MariaDB on 127.0.0.1:3306, isolated schema legit_hair_test
+Secrets: omitted
+Exit: 0 for all commands
+
+Integration: 1 passing
+- rollback followed by clean migration creates durable_jobs and outbox_events
+
+Migration CLI rollback and re-apply completed with exit 0. The B01 guarded seed command confirmed NODE_ENV=test and a database name ending in `_test`.
