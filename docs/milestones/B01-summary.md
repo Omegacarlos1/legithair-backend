@@ -1,6 +1,6 @@
 # B01 foundation summary
 
-Status: LOCAL_VERIFIED on 2026-10-11. This is not owner acceptance.
+Status: ACCEPTED by the owner on 2026-10-12 after local verification on 2026-10-11.
 
 ## Completed scope
 
