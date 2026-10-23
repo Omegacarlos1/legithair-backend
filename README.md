@@ -42,3 +42,9 @@ Use the App Password, not the normal Google account password. Spaces in the disp
 For Postman, set the Local environment variable `gmailRecipient` to the inbox you control, then run `B02 Register - positive`. If that address is already registered but unverified, run `B02 Resend verification - enumeration safe`. Copy the token from the delivered message into `POST /api/v1/auth/verify-email`.
 
 Gmail is intended here for local owner testing, not production acceptance. The production transactional provider and sender domain remain an explicit owner decision; the PRD currently proposes Resend.
+
+## B03 seller onboarding (Dojah deferred)
+
+B02 was accepted on 2026-10-23. The owner deferred Dojah, the NIN/BVN choice, and consent text, so B03 remains `IN_PROGRESS`. Independent seller profile and admin controls are available: create a profile with `POST /api/v1/sellers`, read it with `GET /api/v1/sellers/me`, and manage approval state through the admin-only status endpoint. Identity and approval states are stored separately; approval fails until identity is verified, and there is intentionally no route that can mark identity verified while the provider is deferred.
+
+The reserved `POST /api/v1/sellers/me/verification` route returns `503 IDENTITY_PROVIDER_NOT_CONFIGURED` and accepts no identity fields. Run migrations and `npm run seed:test` against the isolated `_test` database before using the B03 Postman samples. The seeded admin account is documented in the local Postman environment.

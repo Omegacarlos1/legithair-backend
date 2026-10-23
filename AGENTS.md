@@ -8,11 +8,11 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 ## Current milestone
 
-CURRENT_MILESTONE: B02
-STATUS: ACCEPTED
-LAST_VERIFIED: 2026-10-23
-ACCEPTED: 2026-10-23
-All B03–B12 milestones are NOT_STARTED.
+CURRENT_MILESTONE: B03
+STATUS: IN_PROGRESS
+STARTED: 2026-10-23
+B01–B02 are ACCEPTED. All B04–B12 milestones are NOT_STARTED.
+B03 Dojah identity verification and consent are deferred by owner instruction; do not choose NIN/BVN or implement a provider contract until explicitly approved.
 
 ## Decisions before dependent implementation
 

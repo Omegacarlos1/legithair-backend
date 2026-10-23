@@ -5,6 +5,7 @@ import type { Logger } from 'pino';
 import type { Pool } from 'mysql2/promise';
 import { AppError } from './http/errors.js';
 import { createAuthRouter } from './auth/router.js';
+import { createSellerRouter } from './sellers/router.js';
 import { ZodError } from 'zod';
 
 interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number }
@@ -40,6 +41,7 @@ export function createApp({ pool, logger, readinessTimeoutMs }: AppDependencies)
   app.get('/api/v1/health', healthy);
   app.get('/api/v1/ready', ready);
   app.use('/api/v1', createAuthRouter(pool));
+  app.use('/api/v1', createSellerRouter(pool));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;
