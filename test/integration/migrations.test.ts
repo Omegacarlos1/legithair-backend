@@ -5,6 +5,7 @@ import { migrate } from '../../src/database/migrate.js';
 
 describe('MariaDB migrations', () => {
   it('apply cleanly and create the B01-B02 tables', async () => {
+    process.env.EMAIL_PROVIDER = 'fake';
     const config = loadConfig();
     assert.equal(config.NODE_ENV, 'test');
     assert.match(config.DATABASE_NAME, /_test$/);

@@ -14,11 +14,12 @@ describe('authentication and customer accounts against MariaDB', () => {
   let pool: Pool; let api: ReturnType<typeof request>; let customerId: string; let otherCustomerId: string; let accessToken: string; let refreshToken: string;
   const password = 'ValidPass123!';
   before(async () => {
+    process.env.EMAIL_PROVIDER = 'fake';
     const config = loadConfig(); assert.equal(config.NODE_ENV, 'test'); assert.match(config.DATABASE_NAME, /_test$/);
     await migrate('down'); await migrate('up'); pool = createDatabasePool(config);
     api = request(createApp({ pool, logger: pino({ level: 'silent' }), readinessTimeoutMs: 100 }));
   });
-  after(async () => { await pool.end(); });
+  after(async () => { if (pool) await pool.end(); });
   async function latestJobToken(userId: string, type: string): Promise<string> {
     const [rows] = await pool.query<JobRow[]>('SELECT payload FROM durable_jobs WHERE job_type = ? AND JSON_UNQUOTE(JSON_EXTRACT(payload, \'$.userId\')) = ? ORDER BY id DESC LIMIT 1', [type, userId]);
     const payload = typeof rows[0]!.payload === 'string' ? JSON.parse(rows[0]!.payload) as { token: string } : rows[0]!.payload; return payload.token;
@@ -38,6 +39,19 @@ describe('authentication and customer accounts against MariaDB', () => {
     const token = await latestJobToken(response.body.data.userId, 'send_verification');
     await pool.query("UPDATE auth_tokens SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 SECOND) WHERE user_id = ? AND token_type = 'email_verification'", [response.body.data.userId]);
     const expired = await api.post('/api/v1/auth/verify-email').send({ token }).expect(400); assert.equal(expired.body.error.code, 'TOKEN_EXPIRED');
+  });
+  it('reissues verification tokens without revealing account state', async () => {
+    const registration = await api.post('/api/v1/auth/register').send({ email: 'resend@example.test', password, displayName: 'Resend Customer' }).expect(201);
+    const userId = registration.body.data.userId as string;
+    const originalToken = await latestJobToken(userId, 'send_verification');
+    await api.post('/api/v1/auth/resend-verification').send({ email: 'RESEND@example.test' }).expect(202);
+    const replacementToken = await latestJobToken(userId, 'send_verification');
+    assert.notEqual(replacementToken, originalToken);
+    const revoked = await api.post('/api/v1/auth/verify-email').send({ token: originalToken }).expect(400);
+    assert.equal(revoked.body.error.code, 'TOKEN_INVALID_OR_USED');
+    await api.post('/api/v1/auth/verify-email').send({ token: replacementToken }).expect(200);
+    await api.post('/api/v1/auth/resend-verification').send({ email: 'resend@example.test' }).expect(202);
+    await api.post('/api/v1/auth/resend-verification').send({ email: 'unknown@example.test' }).expect(202);
   });
   it('allows only one winner in a concurrent duplicate registration race', async () => {
     const attempts = await Promise.all([

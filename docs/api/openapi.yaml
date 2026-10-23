@@ -21,7 +21,13 @@ paths:
   /api/v1/auth/verify-email:
     post:
       summary: Consume a single-use email verification token
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Token' } } } }
       responses: { '200': { description: Verified }, '400': { description: Invalid, used, or expired token } }
+  /api/v1/auth/resend-verification:
+    post:
+      summary: Queue a replacement verification message without revealing account state
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmailRequest' } } } }
+      responses: { '202': { description: Request accepted }, '400': { description: Invalid input }, '429': { description: Rate limited } }
   /api/v1/auth/login:
     post:
       summary: Authenticate and issue opaque bearer and refresh tokens
@@ -69,3 +75,15 @@ components:
         email: { type: string, format: email }
         password: { type: string, minLength: 12, description: Must include lowercase, uppercase, and a digit. }
         displayName: { type: string, minLength: 2, maxLength: 100 }
+    EmailRequest:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        email: { type: string, format: email }
+    Token:
+      type: object
+      required: [token]
+      additionalProperties: false
+      properties:
+        token: { type: string, minLength: 32, maxLength: 200 }

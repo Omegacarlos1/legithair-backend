@@ -10,6 +10,7 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 CURRENT_MILESTONE: B02
 STATUS: LOCAL_VERIFIED
+LAST_VERIFIED: 2026-10-23
 All B03–B12 milestones are NOT_STARTED.
 
 ## Decisions before dependent implementation

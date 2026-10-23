@@ -46,6 +46,25 @@ export class AuthService {
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   }
 
+  public async requestEmailVerification(emailInput: string): Promise<void> {
+    const email = emailInput.trim().toLowerCase();
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [users] = await connection.query<UserRow[]>('SELECT * FROM users WHERE email = ? FOR UPDATE', [email]);
+      const user = users[0];
+      if (!user || user.email_verified_at) {
+        await connection.commit();
+        return;
+      }
+      const verification = createOpaqueToken();
+      await connection.query("UPDATE auth_tokens SET revoked_at = COALESCE(revoked_at, NOW(3)) WHERE user_id = ? AND token_type = 'email_verification' AND used_at IS NULL", [user.id]);
+      await connection.query("INSERT INTO auth_tokens (id, user_id, token_hash, token_type, expires_at) VALUES (?, ?, ?, 'email_verification', DATE_ADD(NOW(3), INTERVAL 24 HOUR))", [verification.id, user.id, verification.hash]);
+      await connection.query("INSERT INTO durable_jobs (queue_name, job_type, payload) VALUES ('email', 'send_verification', ?)", [JSON.stringify({ to: email, userId: user.id, token: verification.raw })]);
+      await connection.commit();
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  }
+
   public async login(emailInput: string, password: string): Promise<{ user: AuthenticatedUser; tokens: IssuedTokens }> {
     const [rows] = await this.pool.query<UserRow[]>('SELECT * FROM users WHERE email = ?', [emailInput.trim().toLowerCase()]);
     const user = rows[0];

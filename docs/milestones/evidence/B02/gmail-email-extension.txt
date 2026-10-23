@@ -1,0 +1,39 @@
+Date: 2026-10-23 (Africa/Lagos)
+Scope: Gmail SMTP adapter, email workers, resend-verification endpoint, configuration, documentation, and Postman samples.
+Secrets: no Gmail address, App Password, or live recipient was read, logged, or committed.
+
+PASS npm run lint
+Result: 0 errors.
+
+PASS npm run typecheck
+Result: 0 errors.
+
+PASS npm run build
+Result: exit 0.
+
+PASS equivalent unit/API Mocha invocation with process-local Windows host shim
+Command: node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+Result: 9 passed, 0 failed, 0 skipped.
+Breakdown: 5 unit and 4 API tests.
+Covered Gmail configuration gating, whitespace-normalized App Passwords, fake delivery, Gmail message construction through an injected non-network transport, health, readiness, and safe API errors.
+
+PASS equivalent integration Mocha invocation with process-local Windows host shim
+Command: $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test; test code forces EMAIL_PROVIDER=fake.
+Database: isolated XAMPP MariaDB schema.
+Result: 13 passed, 0 failed, 0 skipped.
+Covered replacement-token issuance, old-token revocation, enumeration-safe resend behavior, and the prior B02 authentication, authorization, durable retry, and migration cases.
+
+PASS Postman JSON parse
+Command: Get-Content collection/environment with ConvertFrom-Json.
+Result: collection and Local environment parsed successfully with PowerShell ConvertFrom-Json.
+
+ENVIRONMENT NOTE
+Commands: npm run test:unit; npm run test:api.
+The normal wrappers failed before test discovery because the Codex Windows execution host returned ERR_SYSTEM_ERROR/ENOMEM from uv_os_get_passwd inside tsx. The same test files passed after a process-local os.userInfo shim; application code was not changed to hide the host issue.
+
+PROVIDER EVIDENCE
+Gmail SMTP authentication: NOT RUN; GMAIL_USER and GMAIL_APP_PASSWORD are absent from .env.
+Gmail inbox delivery: NOT RUN.
+Official Google documentation confirms smtp.gmail.com TLS support on ports 465/587 and requires a Google App Password for this password-based setup after enabling 2-Step Verification.
+Orbit discovery searched for Gmail verification delivery. It surfaced the Gmail REST message-send endpoint but no Gmail SMTP contract, so the SMTP settings were taken from current official Google and Nodemailer documentation instead.

@@ -1,10 +1,12 @@
 import { loadConfig } from '../src/config.js';
 import { createDatabasePool } from '../src/database/pool.js';
 import { processOneEmailJob } from '../src/email/job-processor.js';
-import { FakeEmailProvider } from '../src/email/provider.js';
+import { createEmailProvider } from '../src/email/provider.js';
 
-const pool = createDatabasePool(loadConfig()); const provider = new FakeEmailProvider();
+const config = loadConfig();
+const pool = createDatabasePool(config);
+const provider = createEmailProvider(config);
 try {
   const processed = await processOneEmailJob(pool, provider);
-  process.stdout.write(processed ? `Fake email delivered to ${provider.deliveries[0]!.to}\n` : 'No email job is ready\n');
+  process.stdout.write(processed ? `Email job delivered through ${config.EMAIL_PROVIDER}\n` : 'No email job is ready\n');
 } finally { await pool.end(); }

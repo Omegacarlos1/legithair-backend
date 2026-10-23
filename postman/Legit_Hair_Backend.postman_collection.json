@@ -18,8 +18,21 @@
     },
     {
       "name": "B02 Register - positive",
-      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{$randomUUID}}@example.test\",\"password\":\"ValidPass123!\",\"displayName\":\"Postman Customer\"}" }, "url": "{{baseUrl}}/api/v1/auth/register" },
-      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('user fixture returned', () => pm.expect(pm.response.json().data.userId).to.be.a('string'));" ] } }]
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{registrationEmail}}\",\"password\":\"ValidPass123!\",\"displayName\":\"Postman Customer\"}" }, "url": "{{baseUrl}}/api/v1/auth/register" },
+      "event": [
+        { "listen": "prerequest", "script": { "exec": ["const liveRecipient = pm.environment.get('gmailRecipient');", "pm.environment.set('registrationEmail', liveRecipient || (pm.variables.replaceIn('{{$randomUUID}}') + '@example.test'));" ] } },
+        { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('user fixture returned', () => pm.expect(pm.response.json().data.userId).to.be.a('string'));" ] } }
+      ]
+    },
+    {
+      "name": "B02 Resend verification - enumeration safe",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{registrationEmail}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/resend-verification" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 202', () => pm.response.to.have.status(202));", "pm.test('safe response', () => pm.expect(pm.response.json().data.message).to.include('If the account exists'));" ] } }]
+    },
+    {
+      "name": "B02 Verify email token",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"token\":\"{{verificationToken}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/verify-email" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('email verified', () => pm.expect(pm.response.json().data.verified).to.eql(true));" ] } }]
     },
     {
       "name": "B02 Register - invalid",
