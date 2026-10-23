@@ -4,6 +4,8 @@ import { pinoHttp } from 'pino-http';
 import type { Logger } from 'pino';
 import type { Pool } from 'mysql2/promise';
 import { AppError } from './http/errors.js';
+import { createAuthRouter } from './auth/router.js';
+import { ZodError } from 'zod';
 
 interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number }
 
@@ -37,15 +39,17 @@ export function createApp({ pool, logger, readinessTimeoutMs }: AppDependencies)
   app.get('/ready', ready);
   app.get('/api/v1/health', healthy);
   app.get('/api/v1/ready', ready);
+  app.use('/api/v1', createAuthRouter(pool));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;
+    const validation = error instanceof ZodError;
     const known = error instanceof AppError;
-    const status = known ? error.status : 500;
+    const status = validation ? 400 : known ? error.status : 500;
     req.log.error({ err: error }, 'Request failed');
     res.status(status).json({
       success: false,
-      error: { code: known ? error.code : 'INTERNAL_ERROR', message: known ? error.message : 'An unexpected error occurred', ...(known && error.details !== undefined ? { details: error.details } : {}) },
+      error: { code: validation ? 'VALIDATION_ERROR' : known ? error.code : 'INTERNAL_ERROR', message: validation ? 'Request validation failed' : known ? error.message : 'An unexpected error occurred', ...(validation ? { details: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) } : known && error.details !== undefined ? { details: error.details } : {}) },
       meta: { requestId: req.id }
     });
   };
