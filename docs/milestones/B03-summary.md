@@ -1,6 +1,6 @@
-# B03 seller onboarding and identity checks progress summary
+# B03 seller onboarding and identity checks summary
 
-Status: IN_PROGRESS on 2026-10-23. Dojah identity verification and consent are owner-deferred, so B03 is not complete, locally verified as a full milestone, ready for review, or accepted.
+Status: ACCEPTED with reduced scope on 2026-10-23. The owner explicitly accepted the Dojah-independent seller onboarding controls while keeping the provider and production gates below open. This acceptance does not claim that identity verification or real seller approval works.
 
 ## Independent scope completed
 
@@ -29,6 +29,8 @@ Executed lint, type checking, build, equivalent unit/API suites, real MariaDB in
 
 Exact commands and the process-local Windows host workaround are recorded in `docs/milestones/evidence/B03/local-independent-work.txt`. The normal repository commands remain `npm run test:unit`, `npm run test:api`, `npm run test:integration`, `npm run migrate`, and `npm run seed:test`; the workaround was necessary only because this Codex host failed while `tsx` queried the Windows user profile.
 
+The owner reported completing the manual Postman exercise and explicitly accepted the reduced scope. No exported Postman run artifact was supplied, so this is recorded as owner-reported evidence rather than an automated Postman run. See `evidence/B03/owner-acceptance.txt`.
+
 ## Postman
 
 Against the disposable `_test` database, run `npm run migrate:down`, `npm run migrate`, and `npm run seed:test`, then start the API. Run `B02 Login seeded customer`, followed by the B03 requests in order. Seller creation stores `sellerId`; admin login stores `adminAccessToken`. Current positive evidence covers profile creation and suspension. Approval correctly returns `409` until a future approved provider workflow establishes verified identity.
@@ -39,4 +41,11 @@ Against the disposable `_test` database, run `npm run migrate:down`, `npm run mi
 - Approve exact seller consent text, retention, and provider callback/authentication behavior.
 - Implement consent records, provider adapter/requests, minimal provider references, callbacks, and success/rejection/timeout/duplicate acceptance evidence.
 - Run provider test-mode acceptance with owner-controlled credentials; no Dojah network call was made.
-- B04 must not start until B03 is completed and explicitly accepted.
+- Approve the seller approval policy before enabling real seller approval.
+- Run production MySQL verification; local evidence is MariaDB-only.
+- Real seller approval remains disabled because no supported path can establish `identityStatus=verified`.
+- B04 remains `NOT_STARTED` and requires a new instruction before work begins.
+
+## Owner acceptance
+
+On 2026-10-23, the owner explicitly accepted the reduced B03 scope with Dojah verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification remaining open. The owner directed that real seller approval stay disabled until identity verification is implemented.
