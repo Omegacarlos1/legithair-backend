@@ -1,6 +1,6 @@
 # B02 authentication and customer accounts summary
 
-Status: LOCAL_VERIFIED, reverified on 2026-10-23. This is not owner acceptance or live Gmail acceptance.
+Status: ACCEPTED by the owner on 2026-10-23 with the documented Gmail and production gates remaining open.
 
 ## Completed
 
@@ -38,4 +38,4 @@ Import the maintained collection and Local environment. With test variables acti
 
 - Gmail is implemented only for local owner testing. Live authentication and delivery remain unverified until the owner supplies `GMAIL_USER` and a Gmail App Password in `.env` and runs the explicit provider check. The production transactional provider and sender domain remain unresolved; the PRD proposes Resend.
 - Hosted CI and production MySQL compatibility were not executed. XAMPP MariaDB evidence is local evidence only.
-- B02 is not accepted until the owner explicitly reviews it. B03 must not begin before acceptance.
+- Owner acceptance does not claim live Gmail delivery, hosted CI, production MySQL compatibility, or production email-provider acceptance.
