@@ -8,10 +8,12 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 ## Current milestone
 
-CURRENT_MILESTONE: B02
-STATUS: LOCAL_VERIFIED
-LAST_VERIFIED: 2026-10-23
-All B03–B12 milestones are NOT_STARTED.
+CURRENT_MILESTONE: B03
+STATUS: ACCEPTED
+STARTED: 2026-10-23
+ACCEPTED: 2026-10-23
+B01–B03 are ACCEPTED. All B04–B12 milestones are NOT_STARTED.
+B03 was explicitly accepted with reduced scope. Dojah identity verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification remain open. Real seller approval must stay disabled until identity verification is implemented.
 
 ## Decisions before dependent implementation
 

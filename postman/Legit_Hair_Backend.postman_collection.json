@@ -1,5 +1,5 @@
 {
-  "info": { "name": "Legit Hair Backend B01-B02", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "info": { "name": "Legit Hair Backend B01-B03", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
   "item": [
     {
       "name": "Health - positive",
@@ -58,6 +58,41 @@
       "name": "B02 Other customer's addresses - forbidden",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/users/{{otherCustomerId}}/addresses" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('forbidden', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));" ] } }]
+    },
+    {
+      "name": "B03 Create seller - positive",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"businessName\":\"Postman Synthetic Hair Store\",\"phone\":\"+2348000000000\"}" }, "url": "{{baseUrl}}/api/v1/sellers" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('sellerId', b.data.seller.id);", "pm.test('states remain separate', () => { pm.expect(b.data.seller.identityStatus).to.eql('not_started'); pm.expect(b.data.seller.approvalStatus).to.eql('pending'); });" ] } }]
+    },
+    {
+      "name": "B03 Get own seller - positive",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/sellers/me" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('own seller', () => pm.expect(pm.response.json().data.seller.id).to.eql(pm.environment.get('sellerId')));" ] } }]
+    },
+    {
+      "name": "B03 Verification - provider deferred",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/sellers/me/verification" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 503', () => pm.response.to.have.status(503));", "pm.test('explicit provider gate', () => pm.expect(pm.response.json().error.code).to.eql('IDENTITY_PROVIDER_NOT_CONFIGURED'));" ] } }]
+    },
+    {
+      "name": "B03 Login seeded admin",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{adminEmail}}\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('adminAccessToken', b.data.tokens.accessToken);", "pm.test('admin role present', () => pm.expect(b.data.user.roles).to.include('admin'));" ] } }]
+    },
+    {
+      "name": "B03 Approve seller - verification required",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"approved\",\"reason\":\"Postman synthetic approval attempt\"}" }, "url": "{{baseUrl}}/api/v1/admin/sellers/{{sellerId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 409', () => pm.response.to.have.status(409));", "pm.test('verification required', () => pm.expect(pm.response.json().error.code).to.eql('IDENTITY_VERIFICATION_REQUIRED'));" ] } }]
+    },
+    {
+      "name": "B03 Suspend seller - positive",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"suspended\",\"reason\":\"Postman synthetic compliance hold\"}" }, "url": "{{baseUrl}}/api/v1/admin/sellers/{{sellerId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('seller suspended', () => pm.expect(pm.response.json().data.seller.approvalStatus).to.eql('suspended'));" ] } }]
+    },
+    {
+      "name": "B03 Suspended seller verification - forbidden",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/sellers/me/verification" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('suspension enforced', () => pm.expect(pm.response.json().error.code).to.eql('SELLER_SUSPENDED'));" ] } }]
     }
   ]
 }

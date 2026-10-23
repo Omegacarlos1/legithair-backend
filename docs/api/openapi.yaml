@@ -63,6 +63,30 @@ paths:
       security: [{ bearerAuth: [] }]
       summary: Create current customer's address
       responses: { '201': { description: Address created }, '400': { description: Invalid input } }
+  /api/v1/sellers:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create the current user's seller profile
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateSeller' } } } }
+      responses: { '201': { description: Seller created }, '400': { description: Invalid input }, '401': { description: Unauthenticated }, '409': { description: Seller already exists } }
+  /api/v1/sellers/me:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Get the current user's seller profile
+      responses: { '200': { description: Seller profile }, '401': { description: Unauthenticated }, '404': { description: Seller not found } }
+  /api/v1/sellers/me/verification:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Reserved identity-verification start route; provider currently deferred
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '403': { description: Seller suspended }, '404': { description: Seller not found }, '503': { description: Identity provider not configured } }
+  /api/v1/admin/sellers/{sellerId}/status:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Record an admin seller approval-state decision
+      parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerStatusDecision' } } } }
+      responses: { '200': { description: Status updated or already current }, '400': { description: Invalid input }, '403': { description: Admin role required or self-decision forbidden }, '404': { description: Seller not found }, '409': { description: Verified identity required for approval } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -87,3 +111,17 @@ components:
       additionalProperties: false
       properties:
         token: { type: string, minLength: 32, maxLength: 200 }
+    CreateSeller:
+      type: object
+      required: [businessName, phone]
+      additionalProperties: false
+      properties:
+        businessName: { type: string, minLength: 2, maxLength: 150 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+    SellerStatusDecision:
+      type: object
+      required: [status, reason]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [pending, approved, suspended] }
+        reason: { type: string, minLength: 3, maxLength: 500 }

@@ -1,0 +1,51 @@
+Date: 2026-10-23 (Africa/Lagos)
+Scope: Dojah-independent B03 seller profiles, state separation, admin decisions, suspension, audit, migration, contracts, and Postman requests.
+Data: synthetic values only; no real NIN, BVN, consent, Dojah credential, or provider response was used or persisted.
+
+PASS npm run lint
+Result: 0 errors.
+
+PASS npm run typecheck
+Result: 0 errors.
+
+PASS npm run build
+Result: exit 0.
+
+PASS equivalent unit/API Mocha invocation with process-local Windows host shim
+Command:
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+Result: 11 passed, 0 failed, 0 skipped.
+Coverage: Gmail/fake email unit baseline, health API baseline, unauthenticated seller creation, and unauthenticated admin decisions.
+
+PASS equivalent integration Mocha invocation with process-local Windows host shim
+Command:
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test; tests force EMAIL_PROVIDER=fake.
+Result: 20 passed, 0 failed, 0 skipped.
+Coverage: prior B02 behavior; B01-B03 clean migrations; seller creation and duplicate race; safe provider deferral; raw-identity-field rejection; admin role and self-decision denial; verification-before-approval; suspension enforcement; audit contents; idempotent approval after a synthetic database-only verified fixture.
+
+PASS development migration
+Command:
+$env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); require('tsx/cjs'); const {migrate}=require('./src/database/migrate.ts'); migrate('up').catch((error)=>{console.error(error);process.exitCode=1;});"
+Target: local `legit_hair_app` MariaDB schema.
+Result: migration 003 applied.
+
+PASS guarded test fixture seed
+Command:
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); require('tsx/cjs'); const argon2=require('argon2'); const {loadConfig}=require('./src/config.ts'); const {createDatabasePool}=require('./src/database/pool.ts'); (async()=>{const config=loadConfig(); if(config.NODE_ENV!=='test'||!config.DATABASE_NAME.endsWith('_test')) throw new Error('Unsafe seed target'); const pool=createDatabasePool(config); const fixtures=[['10000000-0000-4000-8000-000000000001','customer.fixture@example.test','Customer Fixture','customer'],['10000000-0000-4000-8000-000000000002','admin.fixture@example.test','Admin Fixture','admin']]; try {const hash=await argon2.hash('FixturePass123!',{type:argon2.argon2id}); for(const fixture of fixtures){await pool.query('INSERT INTO users (id,email,password_hash,display_name,email_verified_at) VALUES (?,?,?,?,NOW(3)) ON DUPLICATE KEY UPDATE password_hash=VALUES(password_hash),display_name=VALUES(display_name),email_verified_at=NOW(3)',fixture.slice(0,4)); await pool.query('INSERT IGNORE INTO user_roles (user_id,role) VALUES (?,?)',[fixture[0],fixture[3]]);} process.stdout.write('Seeded 2 synthetic users\\n');} finally {await pool.end();}})().catch(error=>{console.error(error);process.exitCode=1;});"
+Target: isolated `legit_hair_app_test` MariaDB schema.
+Result: 2 synthetic users seeded.
+
+PASS Postman JSON parse
+Command:
+Get-Content -Raw -LiteralPath postman/Legit_Hair_Backend.postman_collection.json | ConvertFrom-Json | Out-Null; Get-Content -Raw -LiteralPath postman/Local.postman_environment.json | ConvertFrom-Json | Out-Null
+Result: collection and environment parsed successfully.
+
+EXPECTED/RECORDED FAILURES
+- Standard `npm run migrate` could not start `tsx` because the Codex Windows host returned `uv_os_get_passwd`/`ENOMEM`; equivalent migration execution with the process-local host shim passed.
+- Initial B03 integration setup exceeded Mocha's default two-second hook timeout while generating three Argon2-backed fixtures. After declaring a 15-second suite timeout, all 20 integration checks passed.
+
+PROVIDER EVIDENCE
+Dojah discovery/contract verification: NOT RUN by owner instruction to skip Dojah for now.
+Dojah mocked success/rejection/timeout/duplicate callbacks: NOT IMPLEMENTED; no provider contract was invented.
+Dojah live/test mode: NOT RUN.

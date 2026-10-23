@@ -1,0 +1,24 @@
+Date: 2026-10-23 (Africa/Lagos)
+Milestone: B03 seller onboarding and identity checks
+Decision: ACCEPTED with reduced scope by explicit owner instruction.
+
+The owner reported completing the manual Postman exercise and accepted B03 with the following gates remaining open:
+- Dojah verification
+- consent records
+- provider callbacks
+- provider test-mode evidence
+- seller approval policy
+- production MySQL verification
+
+Safety condition: real seller approval remains disabled until identity verification is implemented. The existing approval guard requires identityStatus=verified, and no public or admin API currently establishes that state.
+
+Evidence boundary: no exported Postman run artifact accompanied the owner report. Dojah contract, mocked callback, live/test-mode provider, and production MySQL results remain NOT RUN and are not implied by acceptance.
+
+Post-acceptance verification after synchronizing the feature branch with origin/main:
+- ESLint: PASS, 0 errors
+- TypeScript type checking: PASS, 0 errors
+- Build: PASS, exit 0
+- Unit/Supertest API: PASS, 11 passed, 0 failed, 0 skipped
+- MariaDB integration/migrations: PASS, 20 passed, 0 failed, 0 skipped
+- Postman collection/environment JSON parse: PASS
+- Guarded synthetic test fixture seed: PASS, 2 users
