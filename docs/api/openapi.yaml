@@ -87,6 +87,131 @@ paths:
       parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerStatusDecision' } } } }
       responses: { '200': { description: Status updated or already current }, '400': { description: Invalid input }, '403': { description: Admin role required or self-decision forbidden }, '404': { description: Seller not found }, '409': { description: Verified identity required for approval } }
+  /api/v1/categories:
+    get:
+      summary: List active catalogue categories
+      responses: { '200': { description: Stable alphabetical category list } }
+  /api/v1/products:
+    get:
+      summary: Browse published products
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: q, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+        - { name: minPriceMinor, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: maxPriceMinor, in: query, schema: { type: integer, minimum: 0 } }
+        - { name: brand, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: colour, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: size, in: query, schema: { type: string, maxLength: 100 } }
+        - { name: sort, in: query, schema: { type: string, enum: [newest, price_asc, price_desc, popularity], default: newest } }
+      responses: { '200': { description: Published products with stable pagination }, '400': { description: Invalid filters or price range } }
+  /api/v1/products/{productId}:
+    get:
+      summary: Get a published product and its image metadata
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Published product }, '404': { description: Product is absent, unpublished, or in an inactive category } }
+  /api/v1/products/{productId}/related:
+    get:
+      summary: Get published products in the same category
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 8 } }
+      responses: { '200': { description: Related products ordered by paid units sold }, '404': { description: Source product not public } }
+  /api/v1/products/{productId}/images/{imageId}:
+    get:
+      summary: Read a validated image for a published product
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: imageId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses: { '200': { description: JPEG, PNG, or WebP bytes }, '404': { description: Image or published product not found } }
+  /api/v1/admin/categories:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a category
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateCategory' } } } }
+      responses: { '201': { description: Category created }, '403': { description: Admin role required }, '409': { description: Category already exists } }
+  /api/v1/admin/categories/{categoryId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Rename or activate/deactivate a category
+      parameters: [{ name: categoryId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateCategory' } } } }
+      responses: { '200': { description: Category updated }, '403': { description: Admin role required }, '404': { description: Category not found } }
+  /api/v1/seller/products:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List the approved seller's own products, including drafts
+      responses: { '200': { description: Own products }, '403': { description: Seller is not verified and approved, or is suspended } }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create a seller-owned draft product
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateProduct' } } } }
+      responses: { '201': { description: Draft product created }, '400': { description: Invalid input }, '403': { description: Verified and approved seller required }, '409': { description: Category unavailable } }
+  /api/v1/seller/products/{productId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Edit the approved seller's own product metadata
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateProduct' } } } }
+      responses: { '200': { description: Product updated }, '403': { description: Seller unavailable or product owned by another seller }, '404': { description: Product not found } }
+  /api/v1/seller/products/{productId}/publication:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Publish or unpublish the seller's own product
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PublicationDecision' } } } }
+      responses: { '200': { description: Publication status updated }, '403': { description: Verified and approved seller required }, '409': { description: Validated product image required } }
+  /api/v1/seller/products/{productId}/stock:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Apply an idempotent stock delta to the seller's own product
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustment' } } } }
+      responses: { '200': { description: Applied or safely replayed }, '400': { description: Invalid or missing idempotency key }, '403': { description: Seller unavailable or cross-seller operation }, '409': { description: Insufficient stock or stock limit exceeded } }
+  /api/v1/seller/products/{productId}/images:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Upload one validated product image
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image, altText]
+              additionalProperties: false
+              properties:
+                image: { type: string, format: binary, description: JPEG, PNG, or WebP; configured maximum defaults to 5 MiB. }
+                altText: { type: string, minLength: 2, maxLength: 200 }
+                sortOrder: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+      responses: { '201': { description: Image validated and stored }, '400': { description: Missing or invalid multipart data }, '403': { description: Seller unavailable or cross-seller operation }, '413': { description: Image too large }, '415': { description: Declared or detected image type unsupported } }
+  /api/v1/admin/products/{productId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Edit any seller-owned product metadata
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateProduct' } } } }
+      responses: { '200': { description: Product updated }, '403': { description: Admin role required }, '404': { description: Product not found } }
+  /api/v1/admin/products/{productId}/publication:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Publish or unpublish any seller-owned product without bypassing seller eligibility
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PublicationDecision' } } } }
+      responses: { '200': { description: Publication status updated }, '403': { description: Admin required or owning seller not verified and approved }, '409': { description: Validated image required } }
+  /api/v1/admin/products/{productId}/stock:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Apply an audited idempotent stock delta to any product
+      parameters:
+        - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustment' } } } }
+      responses: { '200': { description: Applied or safely replayed }, '403': { description: Admin role required }, '409': { description: Stock invariant violated } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -124,4 +249,57 @@ components:
       additionalProperties: false
       properties:
         status: { type: string, enum: [pending, approved, suspended] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    CreateCategory:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+    UpdateCategory:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        isActive: { type: boolean }
+    CreateProduct:
+      type: object
+      required: [categoryId, name, description, priceMinor]
+      additionalProperties: false
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, minLength: 2, maxLength: 180 }
+        description: { type: string, minLength: 10, maxLength: 10000 }
+        priceMinor: { type: integer, minimum: 0, maximum: 9000000000000, description: NGN minor units. }
+        brand: { type: [string, 'null'], maxLength: 100 }
+        colour: { type: [string, 'null'], maxLength: 100, description: Descriptive metadata, not a selectable variant. }
+        size: { type: [string, 'null'], maxLength: 100, description: Descriptive metadata, not a selectable variant. }
+        lowStockThreshold: { type: integer, minimum: 0, maximum: 2000000000, default: 0 }
+        initialStock: { type: integer, minimum: 0, maximum: 2000000000, default: 0 }
+    UpdateProduct:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, minLength: 2, maxLength: 180 }
+        description: { type: string, minLength: 10, maxLength: 10000 }
+        priceMinor: { type: integer, minimum: 0, maximum: 9000000000000, description: NGN minor units. }
+        brand: { type: [string, 'null'], maxLength: 100 }
+        colour: { type: [string, 'null'], maxLength: 100 }
+        size: { type: [string, 'null'], maxLength: 100 }
+        lowStockThreshold: { type: integer, minimum: 0, maximum: 2000000000 }
+    PublicationDecision:
+      type: object
+      required: [status]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [published, unpublished] }
+    StockAdjustment:
+      type: object
+      required: [delta, reason]
+      additionalProperties: false
+      properties:
+        delta: { type: integer, minimum: -2000000000, maximum: 2000000000, not: { const: 0 } }
         reason: { type: string, minLength: 3, maxLength: 500 }

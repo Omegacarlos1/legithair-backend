@@ -26,7 +26,9 @@ const schema = z.object({
   EMAIL_FROM_NAME: z.string().trim().min(1).max(100).refine((value) => !/[\r\n]/.test(value)).default('Legit Hair'),
   GMAIL_USER: optionalEmail,
   GMAIL_APP_PASSWORD: optionalGmailAppPassword,
-  EMAIL_WORKER_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(2000)
+  EMAIL_WORKER_POLL_MS: z.coerce.number().int().min(250).max(60_000).default(2000),
+  IMAGE_STORAGE_ROOT: z.string().trim().min(1).default('storage/product-images'),
+  IMAGE_MAX_BYTES: z.coerce.number().int().min(1024).max(20 * 1024 * 1024).default(5 * 1024 * 1024)
 }).superRefine((config, context) => {
   if (config.EMAIL_PROVIDER !== 'gmail') return;
   if (!config.GMAIL_USER) context.addIssue({ code: 'custom', path: ['GMAIL_USER'], message: 'GMAIL_USER is required for Gmail delivery' });
