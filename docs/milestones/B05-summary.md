@@ -1,6 +1,6 @@
 # B05 baskets and delivery quotations summary
 
-Status: READY_FOR_REVIEW on 2026-10-25. B04 acceptance and merge were confirmed before implementation. ADR 0006 supplied the approved Lagos delivery and mixed-seller policy. B05 is locally implemented but is not owner-accepted, and B06 must not start yet.
+Status: ACCEPTED by the owner on 2026-10-25 with the documented production MySQL, production pickup/courier, and earlier milestone gates remaining open. B04 acceptance and merge were confirmed before implementation. ADR 0006 supplied the approved Lagos delivery and mixed-seller policy.
 
 ## Scope completed
 
@@ -45,11 +45,11 @@ The seed supplies product IDs, the owned address, zone 1, the synthetic pickup l
 
 ## Open gates and limitations
 
-- Owner review and explicit B05 acceptance. Manual Postman execution is owner-reported complete, without an exported run artifact.
+- No exported Postman run artifact was supplied; the successful manual run is owner-reported.
 - Production MySQL migration, locking and query-plan verification.
 - The real production pickup street address and selected courier's written fees/estimates; the synthetic pickup must never be activated as real.
 - The seeded USD value is test-only. An authorised admin must supply the current display rate; NGN remains the only settlement currency.
 - Quotes expire and do not reserve stock. B06 must revalidate the quote and reserve stock transactionally.
 - Failed delivery, redelivery, COD, returns, commission and payout policies remain gates for their dependent milestones.
 - Earlier B03 identity/provider gates and B04 production image-storage gate remain open; real seller approval remains disabled.
-- Do not start B06 until B05 is explicitly accepted and the B06 commission/COD dependencies are resolved or explicitly deferred.
+- B05 is accepted. Do not start B06 until a new instruction is given and the B06 commission/COD dependencies are resolved or explicitly deferred.
