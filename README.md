@@ -16,11 +16,11 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run lint`, `npm run typecheck`, `npm test`
 - `npm run test:integration` (requires an isolated MariaDB test schema)
 - `npm run migrate`, `npm run migrate:down`
-- `npm run seed:test` (creates guarded synthetic B02 fixtures)
+- `npm run seed:test` (creates guarded synthetic B02-B04 fixtures, including two test-only approved sellers)
 
 ## B02 authentication fixtures
 
-After migrating the isolated `legit_hair_test` schema, run `npm run seed:test` with `NODE_ENV=test` and the test database variables. It creates the synthetic Postman users documented in the local environment. Never run it against a development or production database; the command rejects any database name that does not end in `_test`.
+After migrating the isolated `legit_hair_test` schema, run `npm run seed:test` with `NODE_ENV=test` and the test database variables. It creates the synthetic Postman users documented in the local environment, including two test-only sellers whose verified/approved state is never available outside a `_test` database. Never run it against a development or production database; the command rejects any database name that does not end in `_test`.
 
 Local verification and password-reset messages are stored as pending `durable_jobs` records for the fake email workflow. The application stores only hashes of opaque authentication tokens; raw verification/reset tokens exist only in the queued email payload until delivery.
 Run `npm run email:work-once` to process one ready message through the configured adapter; it reports only the provider result, never the recipient or token.
@@ -48,3 +48,9 @@ Gmail is intended here for local owner testing, not production acceptance. The p
 B02 was accepted on 2026-10-23. B03 was accepted on 2026-10-23 with reduced scope after the owner deferred Dojah, the NIN/BVN choice, consent records, provider callbacks and provider evidence. Independent seller profile and admin controls are available: create a profile with `POST /api/v1/sellers`, read it with `GET /api/v1/sellers/me`, and manage approval state through the admin-only status endpoint. Identity and approval states are stored separately; approval fails until identity is verified, and there is intentionally no route that can mark identity verified while the provider is deferred. Real seller approval therefore remains disabled.
 
 The reserved `POST /api/v1/sellers/me/verification` route returns `503 IDENTITY_PROVIDER_NOT_CONFIGURED` and accepts no identity fields. Run migrations and `npm run seed:test` against the isolated `_test` database before using the B03 Postman samples. The seeded admin account is documented in the local Postman environment.
+
+## B04 catalogue and stock
+
+B04 catalogue work is on `feature/B04-catalogue-stock`. Public browsing supports category, search, NGN minor-unit price, brand, colour and size metadata filters with stable pagination and sorting. Colour and size do not create variants. Popularity is stored as paid units sold and remains zero until the paid-order integration updates it.
+
+Seller catalogue writes require a verified and approved seller. Because B03's real identity provider remains deferred, only the guarded `_test` seed creates synthetic approved sellers for B04 verification. The seed is rejected outside a database ending in `_test`. Product images use generated private storage keys, JPEG/PNG/WebP signature validation, a configurable size limit, and controlled reads; production object storage is not yet configured.

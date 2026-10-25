@@ -1,0 +1,62 @@
+B04 automated verification evidence
+Date: 2026-10-24 (Africa/Lagos)
+Branch: feature/B04-catalogue-stock
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+Command: npm run lint
+Result: PASS (exit 0, 0 ESLint errors)
+
+Command: npm run typecheck
+Result: PASS (exit 0, 0 TypeScript errors)
+
+Command: npm run build
+Result: PASS (exit 0)
+
+UNIT AND API CHECKS
+
+The normal tsx executable cannot start on this Codex Windows host because
+uv_os_get_passwd returns ENOMEM. The same repository Mocha suite was executed
+with a process-local os.userInfo shim before loading tsx/cjs:
+
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+
+Result: PASS
+Counts: 13 passing, 0 failing, 0 skipped
+Breakdown: 5 unit assertions and 8 Supertest API assertions.
+B04-specific API evidence includes unauthenticated seller-product creation and
+unauthenticated category administration rejection.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test
+Database server: 10.4.32-MariaDB
+Command used the same process-local Windows host shim described above and ran:
+test/integration/**/*.test.ts
+
+Result: PASS
+Counts: 27 passing, 0 failing, 0 skipped
+B04-specific scenarios: 7 passing.
+
+B04 scenarios proved:
+- pending sellers cannot create products and drafts are absent from public reads;
+- publication requires an image;
+- JPEG/PNG/WebP declaration, signature, and byte-size validation paths;
+- validated image persistence and controlled published-image delivery;
+- cross-seller product and stock operations return 403;
+- two concurrent decrements of the last item yield one 200 and one 409;
+- the winning idempotency key replays without a second adjustment;
+- text search, metadata/price filters, deterministic price and popularity order,
+  pagination, and related-product exclusion;
+- admin editing does not bypass owning-seller eligibility, and suspension blocks
+  seller catalogue operations;
+- migrations 001-004 apply cleanly after a full disposable-schema rollback.
+
+Final output: 27 passing (5s)
+
+CONTRACT PARSE
+
+Command: node -e parsing the collection/environment with JSON.parse and the
+OpenAPI document with js-yaml.
+Result: PASS - Postman JSON and OpenAPI YAML parsed successfully.

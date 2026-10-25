@@ -6,11 +6,12 @@ import type { Pool } from 'mysql2/promise';
 import { AppError } from './http/errors.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSellerRouter } from './sellers/router.js';
+import { createCatalogRouter } from './catalog/router.js';
 import { ZodError } from 'zod';
 
-interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number }
+interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number }
 
-export function createApp({ pool, logger, readinessTimeoutMs }: AppDependencies): express.Express {
+export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024 }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
@@ -42,6 +43,7 @@ export function createApp({ pool, logger, readinessTimeoutMs }: AppDependencies)
   app.get('/api/v1/ready', ready);
   app.use('/api/v1', createAuthRouter(pool));
   app.use('/api/v1', createSellerRouter(pool));
+  app.use('/api/v1', createCatalogRouter(pool, imageStorageRoot, imageMaxBytes));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;

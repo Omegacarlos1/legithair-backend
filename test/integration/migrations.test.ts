@@ -4,7 +4,7 @@ import { loadConfig } from '../../src/config.js';
 import { migrate } from '../../src/database/migrate.js';
 
 describe('MariaDB migrations', () => {
-  it('apply cleanly and create the B01-B03 tables', async () => {
+  it('apply cleanly and create the B01-B04 tables', async () => {
     process.env.EMAIL_PROVIDER = 'fake';
     const config = loadConfig();
     assert.equal(config.NODE_ENV, 'test');
@@ -13,7 +13,7 @@ describe('MariaDB migrations', () => {
     await migrate('up');
     const connection = await mysql.createConnection({ host: config.DATABASE_HOST, port: config.DATABASE_PORT, user: config.DATABASE_USER, password: config.DATABASE_PASSWORD, database: config.DATABASE_NAME });
     try {
-      const expected = ['addresses', 'auth_tokens', 'durable_jobs', 'outbox_events', 'seller_audit_events', 'sellers', 'user_roles', 'users'];
+      const expected = ['addresses', 'auth_tokens', 'categories', 'durable_jobs', 'outbox_events', 'product_audit_events', 'product_images', 'products', 'seller_audit_events', 'sellers', 'stock_adjustments', 'user_roles', 'users'];
       const [rows] = await connection.query<Array<RowDataPacket & { table_name: string }>>(`SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name IN (${expected.map(() => '?').join(', ')})`, [config.DATABASE_NAME, ...expected]);
       assert.deepEqual(rows.map((row) => row.table_name).sort(), expected);
     } finally { await connection.end(); }

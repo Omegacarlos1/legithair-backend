@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     { database: config.DATABASE_NAME, host: config.DATABASE_HOST, port: config.DATABASE_PORT },
     'Database connected successfully'
   );
-  const app = createApp({ pool, logger, readinessTimeoutMs: config.READINESS_TIMEOUT_MS });
+  const app = createApp({ pool, logger, readinessTimeoutMs: config.READINESS_TIMEOUT_MS, imageStorageRoot: config.IMAGE_STORAGE_ROOT, imageMaxBytes: config.IMAGE_MAX_BYTES });
   const server = app.listen(config.PORT, config.HOST, () => logger.info({ host: config.HOST, port: config.PORT }, 'Server listening'));
   const shutdown = (signal: string): void => {
     logger.info({ signal }, 'Shutting down');

@@ -1,0 +1,38 @@
+B04 local database and fixture evidence
+Date: 2026-10-24 (Africa/Lagos)
+
+Development migration
+Environment: NODE_ENV=development, DATABASE_NAME=legit_hair_app,
+EMAIL_PROVIDER=fake for the command process only.
+Result: PASS
+Output:
+Database connected successfully (legit_hair_app)
+Migrations applied successfully
+
+Test fixture seed
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test,
+EMAIL_PROVIDER=fake for the command process only.
+The process-local Windows host shim invoked exported seedTestFixtures().
+Result: PASS
+Output:
+Seeded 4 synthetic users and 2 synthetic approved sellers. Login password: FixturePass123!
+
+Fixture safety guard
+Environment: NODE_ENV=development, DATABASE_NAME=legit_hair_app.
+Result: PASS
+Output:
+Guard rejected non-test database as expected
+
+Standard command host limitation
+Command: npm run seed:test
+Result on this Codex host: BLOCKED before application code (exit 1)
+Cause: tsx startup called node:os userInfo; uv_os_get_passwd returned ENOMEM.
+The equivalent shimmed invocation above succeeded. This is a host-specific
+execution limitation already documented in B02-B03, not a seed assertion or
+database failure.
+
+Database identity
+Command: SELECT VERSION() AS version against legit_hair_app_test
+Output: 10.4.32-MariaDB
+
+This proves local MariaDB behavior only. It is not production-MySQL evidence.
