@@ -41,11 +41,11 @@ The normal `tsx`-based npm test commands remain blocked before discovery on this
 
 Import `postman/Legit_Hair_Backend.postman_collection.json` and `postman/Local.postman_environment.json`. Point the environment at the API running against `legit_hair_app_test`, then run migrations and the guarded seed. Run requests whose names start with `B05` in order. They log in the seeded customer, inspect seeded delivery options, create a guest credential, add products from two sellers, reject an unsupported address, merge into the customer basket, create a two-seller quote and replay its idempotency key.
 
-The seed supplies product IDs, the owned address, zone 1, the synthetic pickup location and the indicative test USD rate. Postman scripts store the guest credential, access token, quote key and quote ID. The exports parsed successfully; no manual Postman execution artifact was produced in this session.
+The seed supplies product IDs, the owned address, zone 1, the synthetic pickup location and the indicative test USD rate. Postman scripts store the guest credential, access token, quote key and quote ID. The exports parsed successfully. On 2026-10-25, the owner reported that all B05 manual Postman samples passed. No exported run artifact accompanied the report, so this remains owner-reported evidence. See [owner-postman-report.txt](evidence/B05/owner-postman-report.txt).
 
 ## Open gates and limitations
 
-- Owner review, manual Postman execution and explicit B05 acceptance.
+- Owner review and explicit B05 acceptance. Manual Postman execution is owner-reported complete, without an exported run artifact.
 - Production MySQL migration, locking and query-plan verification.
 - The real production pickup street address and selected courier's written fees/estimates; the synthetic pickup must never be activated as real.
 - The seeded USD value is test-only. An authorised admin must supply the current display rate; NGN remains the only settlement currency.
