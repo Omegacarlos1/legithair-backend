@@ -1,6 +1,6 @@
 # B04 catalogue and stock management summary
 
-Status: READY_FOR_REVIEW on 2026-10-24. B03 acceptance and its reduced-scope evidence were confirmed before implementation. B04 is locally implemented, but it is not owner-accepted and B05 must not start yet.
+Status: ACCEPTED by the owner on 2026-10-25 with the documented production MySQL, production image-storage, and earlier B03 gates remaining open. B03 acceptance and its reduced-scope evidence were confirmed before implementation.
 
 ## Scope completed
 
@@ -32,7 +32,7 @@ Migration 004 applied to the local development database and to the disposable in
 
 ## Verification
 
-Executed lint, type checking, build, 5 unit tests, 8 Supertest API tests, 27 MariaDB integration tests, the development migration, guarded test seed, seed refusal check, OpenAPI parse, and Postman JSON parse. All application assertions passed; no tests were skipped. Manual Postman execution, production MySQL, and production image-storage checks were not run.
+Executed lint, type checking, build, 5 unit tests, 8 Supertest API tests, 27 MariaDB integration tests, the development migration, guarded test seed, seed refusal check, OpenAPI parse, and Postman JSON parse. All application assertions passed; no tests were skipped. On 2026-10-25, the owner reported that all manual Postman checks passed and explicitly accepted B04. No exported Postman run artifact was supplied, so this is owner-reported evidence rather than an independently captured automated run. Production MySQL and production image-storage checks were not run.
 
 Exact results are in [B04-test-results.md](B04-test-results.md), with saved evidence in [evidence/B04](evidence/B04/automated-tests.txt). The normal `tsx` command remains blocked by this Codex Windows host's `uv_os_get_passwd/ENOMEM` issue; the recorded equivalent invocations use the established process-local shim.
 
@@ -46,14 +46,13 @@ Import `postman/Legit_Hair_Backend.postman_collection.json` and `postman/Local.p
 4. Upload the local image, publish, browse with filters, adjust stock, and replay the key.
 5. Login the second synthetic seller and confirm cross-seller stock adjustment returns 403.
 
-Scripts store `adminAccessToken`, `sellerAccessToken`, `otherSellerAccessToken`, `categoryId`, `productId`, and `imageId`, and assert expected status codes and response fields. The JSON exports parsed successfully, but no manual Postman run artifact was produced in this session.
+Scripts store `adminAccessToken`, `sellerAccessToken`, `otherSellerAccessToken`, `categoryId`, `productId`, and `imageId`, and assert expected status codes and response fields. The JSON exports parsed successfully. The owner reported completing all manual Postman checks successfully on 2026-10-25; no exported run artifact accompanied the report. See [owner-acceptance.txt](evidence/B04/owner-acceptance.txt).
 
 ## Open gates and limitations
 
-- Owner review and explicit B04 acceptance.
-- Manual Postman execution/exported run evidence.
+- No exported Postman run artifact was supplied; the successful manual run is owner-reported.
 - Production MySQL migration, concurrency, and query-plan verification.
 - Production object storage, backup/recovery, malware scanning, CDN, and retention decisions/evidence.
 - B03's Dojah, consent, callback, provider evidence, seller approval policy, and production MySQL gates remain open. Real seller approval remains disabled.
 - Paid-order integration must increment `paid_units_sold` only after the payment milestone defines authoritative paid units.
-- Do not start B05 until B04 is explicitly accepted and the mixed-seller delivery allocation and delivery-zone policy decisions needed by B05 are approved.
+- B04 is accepted. Do not start B05 until a new instruction is given and the mixed-seller delivery allocation and delivery-zone policy decisions needed by B05 are approved.

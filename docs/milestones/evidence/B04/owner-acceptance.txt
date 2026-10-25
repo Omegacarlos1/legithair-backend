@@ -1,0 +1,12 @@
+Date: 2026-10-25 (Africa/Lagos)
+Milestone: B04 catalogue and stock management
+Decision: ACCEPTED by explicit owner instruction.
+
+The owner reported testing all B04 Postman requests and stated that they all passed. The owner then explicitly accepted B04 with these gates remaining open:
+- production MySQL verification
+- production image-storage decisions and evidence
+- the earlier B03 gates
+
+The earlier B03 gates are Dojah verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification. Real seller approval remains disabled; B04 catalogue tests and Postman samples continue to rely only on guarded synthetic approved-seller fixtures.
+
+Evidence boundary: no exported Postman run artifact accompanied the owner report. The successful manual Postman result is owner-reported. Production MySQL and production image-storage checks remain NOT RUN and are not implied by acceptance.
