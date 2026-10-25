@@ -29,6 +29,8 @@ Migrations 005 and 006 add nine tables and seed three approved delivery zones. T
 
 Rollback drops quote allocations/items, quotes, basket items/baskets, rates, configuration audit events, pickup locations and zones. This permanently deletes active baskets, financial configuration history and immutable quote evidence. Back up these tables or prefer forward recovery outside a disposable environment. B06 must account for quote references before any later rollback strategy is approved.
 
+The current `npm run migrate:down` runner rolls back every applied migration in reverse order, not only B05. It is suitable only for the disposable test schema; production recovery must use a reviewed targeted or forward migration.
+
 ## Verification
 
 Executed ESLint, TypeScript checking, build, 7 unit tests, 11 Supertest API tests, and 33 MariaDB integration tests; all application assertions passed and none were skipped. Six integration scenarios are B05-specific. Migration 005 applied to development and test, the guarded fixture seed passed, its non-test refusal passed, and OpenAPI/Postman parsing passed.
