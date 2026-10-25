@@ -1,0 +1,34 @@
+B05 local database and fixture evidence
+Date: 2026-10-25 (Africa/Lagos)
+
+DEVELOPMENT MIGRATION
+
+Environment: DATABASE_NAME=legit_hair_app, EMAIL_PROVIDER=fake
+Invocation: exported migrate('up') through the established process-local os.userInfo shim
+Result: PASS
+Output: Database connected successfully (legit_hair_app); migrations applied successfully.
+
+DISPOSABLE TEST DATABASE
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Server: 10.4.32-MariaDB
+Migrations 005 and 006 recorded: 1 each
+Approved delivery zones: 3
+
+GUARDED TEST SEED
+
+Invocation: exported seedTestFixtures() through the process-local host shim
+Result: PASS
+Output: Seeded 4 synthetic users, 2 synthetic approved sellers, and 2 B05 products.
+Verified B05 fixture counts: 2 products and 1 active synthetic pickup location.
+The seed also sets one test-only USD display rate and one customer-owned Lagos address.
+
+SEED REFUSAL
+
+Environment: NODE_ENV=development, DATABASE_NAME=legit_hair_app
+Result: PASS
+Output: Refusing to seed: NODE_ENV must be test and DATABASE_NAME must end with _test.
+
+BOUNDARIES
+
+The local server is MariaDB, not production MySQL. The pickup location and USD rate are synthetic test inputs. No courier, payment, identity-provider, or other external network call was made.
