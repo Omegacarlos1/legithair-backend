@@ -125,7 +125,7 @@ export class BasketService {
     return { zones: zones.map(zoneView), pickupLocations: pickups.map(pickupView) };
   }
 
-  public async updateZone(zoneId: string, input: { name?: string; coverage?: string[]; feeMinor?: number; minBusinessDays?: number; maxBusinessDays?: number; isActive?: boolean }): Promise<object> {
+  public async updateZone(actorUserId: string, zoneId: string, input: { name?: string; coverage?: string[]; feeMinor?: number; minBusinessDays?: number; maxBusinessDays?: number; isActive?: boolean }): Promise<object> {
     const [rows] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones WHERE id = ?', [zoneId]);
     if (!rows[0]) throw new AppError(404, 'DELIVERY_ZONE_NOT_FOUND', 'Delivery zone not found');
     const min = input.minBusinessDays ?? rows[0].min_business_days;
@@ -136,6 +136,7 @@ export class BasketService {
     addUpdate(sets, values, 'fee_minor', input.feeMinor); addUpdate(sets, values, 'min_business_days', input.minBusinessDays); addUpdate(sets, values, 'max_business_days', input.maxBusinessDays); addUpdate(sets, values, 'is_active', input.isActive);
     await this.pool.query(`UPDATE delivery_zones SET ${sets.join(', ')} WHERE id = ?`, [...values, zoneId]);
     const [updated] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones WHERE id = ?', [zoneId]);
+    await this.auditDeliveryConfig(actorUserId, 'delivery_zone', zoneId, 'updated', zoneView(rows[0]), zoneView(updated[0]!));
     return zoneView(updated[0]!);
   }
 
@@ -149,6 +150,7 @@ export class BasketService {
       throw error;
     }
     const [rows] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones WHERE id = ?', [id]);
+    await this.auditDeliveryConfig(actorUserId, 'delivery_zone', id, 'created', null, zoneView(rows[0]!));
     return zoneView(rows[0]!);
   }
 
@@ -158,10 +160,11 @@ export class BasketService {
     const id = randomUUID();
     await this.pool.query('INSERT INTO pickup_locations (id, name, address_line, city, state, fee_minor, min_business_days, max_business_days, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [id, input.name.trim(), input.addressLine.trim(), input.city.trim(), input.state.trim(), input.feeMinor, input.minBusinessDays, input.maxBusinessDays, input.isActive, actorUserId]);
     const [rows] = await this.pool.query<PickupRow[]>('SELECT * FROM pickup_locations WHERE id = ?', [id]);
+    await this.auditDeliveryConfig(actorUserId, 'pickup_location', id, 'created', null, pickupView(rows[0]!));
     return pickupView(rows[0]!);
   }
 
-  public async updatePickup(pickupId: string, input: { name?: string; addressLine?: string; city?: string; state?: string; feeMinor?: number; minBusinessDays?: number; maxBusinessDays?: number; isActive?: boolean }): Promise<object> {
+  public async updatePickup(actorUserId: string, pickupId: string, input: { name?: string; addressLine?: string; city?: string; state?: string; feeMinor?: number; minBusinessDays?: number; maxBusinessDays?: number; isActive?: boolean }): Promise<object> {
     const [rows] = await this.pool.query<PickupRow[]>('SELECT * FROM pickup_locations WHERE id = ?', [pickupId]);
     const current = rows[0];
     if (!current) throw new AppError(404, 'PICKUP_LOCATION_NOT_FOUND', 'Pickup location not found');
@@ -174,13 +177,16 @@ export class BasketService {
     addUpdate(sets, values, 'name', input.name?.trim()); addUpdate(sets, values, 'address_line', input.addressLine?.trim()); addUpdate(sets, values, 'city', input.city?.trim()); addUpdate(sets, values, 'state', input.state?.trim()); addUpdate(sets, values, 'fee_minor', input.feeMinor); addUpdate(sets, values, 'min_business_days', input.minBusinessDays); addUpdate(sets, values, 'max_business_days', input.maxBusinessDays); addUpdate(sets, values, 'is_active', input.isActive);
     await this.pool.query(`UPDATE pickup_locations SET ${sets.join(', ')} WHERE id = ?`, [...values, pickupId]);
     const [updated] = await this.pool.query<PickupRow[]>('SELECT * FROM pickup_locations WHERE id = ?', [pickupId]);
+    await this.auditDeliveryConfig(actorUserId, 'pickup_location', pickupId, 'updated', pickupView(current), pickupView(updated[0]!));
     return pickupView(updated[0]!);
   }
 
   public async setUsdRate(actorUserId: string, rate: number): Promise<object> {
+    const [previous] = await this.pool.query<RateRow[]>("SELECT * FROM indicative_exchange_rates WHERE currency = 'USD'");
     await this.pool.query(`INSERT INTO indicative_exchange_rates (currency, ngn_minor_per_currency_minor, updated_by) VALUES ('USD', ?, ?)
       ON DUPLICATE KEY UPDATE ngn_minor_per_currency_minor = VALUES(ngn_minor_per_currency_minor), updated_by = VALUES(updated_by), updated_at = NOW(3)`, [rate, actorUserId]);
     const [rows] = await this.pool.query<RateRow[]>("SELECT * FROM indicative_exchange_rates WHERE currency = 'USD'");
+    await this.auditDeliveryConfig(actorUserId, 'exchange_rate', 'USD', previous[0] ? 'updated' : 'created', previous[0] ? rateView(previous[0]) : null, rateView(rows[0]!));
     return rateView(rows[0]!);
   }
 
@@ -198,8 +204,7 @@ export class BasketService {
         if (existing[0].expires_at.getTime() <= Date.now()) throw new AppError(410, 'QUOTE_EXPIRED', 'Checkout quote has expired');
         quoteId = existing[0].id; replay = true;
         await connection.commit();
-        return { quote: await this.quoteView(quoteId), idempotentReplay: replay };
-      }
+      } else {
       const [items] = await connection.query<BasketItemRow[]>(`${BASKET_ITEMS_SELECT} WHERE bi.basket_id = ? ORDER BY p.id FOR UPDATE`, [basket.id]);
       if (!items.length) throw new AppError(409, 'BASKET_EMPTY', 'Cannot quote an empty basket');
       const unavailable = items.filter((item) => !isAvailable(item, item.quantity)).map((item) => item.product_id);
@@ -228,6 +233,7 @@ export class BasketService {
       }
       for (const sellerId of sellerIds) await connection.query('INSERT INTO checkout_quote_delivery_allocations (quote_id, seller_id, fee_minor) VALUES (?, ?, ?)', [quoteId, sellerId, feePerSeller]);
       await connection.commit();
+      }
     } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
     return { quote: await this.quoteView(quoteId), idempotentReplay: replay };
   }
@@ -319,6 +325,10 @@ export class BasketService {
     const [items] = await this.pool.query<QuoteItemRow[]>('SELECT * FROM checkout_quote_items WHERE quote_id = ? ORDER BY product_id', [quoteId]);
     const [allocations] = await this.pool.query<AllocationRow[]>('SELECT * FROM checkout_quote_delivery_allocations WHERE quote_id = ? ORDER BY seller_id', [quoteId]);
     return { id: quote.id, basketId: quote.basket_id, deliveryMethod: quote.delivery_method, destination: jsonObject(quote.destination_snapshot), currency: 'NGN', items: items.map((item) => ({ productId: item.product_id, sellerId: item.seller_id, productName: item.product_name, quantity: item.quantity, unitPriceMinor: moneyValue(item.unit_price_minor), lineTotalMinor: moneyValue(item.line_total_minor) })), deliveryAllocations: allocations.map((item) => ({ sellerId: item.seller_id, feeMinor: moneyValue(item.fee_minor) })), totals: { itemsSubtotalMinor: moneyValue(quote.items_subtotal_minor), deliveryTotalMinor: moneyValue(quote.delivery_total_minor), grandTotalMinor: moneyValue(quote.grand_total_minor) }, usdIndicative: quote.usd_rate_minor === null ? null : { currency: 'USD', grandTotalMinor: moneyValue(quote.usd_grand_total_minor!), ngnMinorPerUsdMinor: moneyValue(quote.usd_rate_minor), rateUpdatedAt: quote.usd_rate_updated_at, settlementCurrency: 'NGN' }, expiresAt: quote.expires_at, createdAt: quote.created_at };
+  }
+
+  private async auditDeliveryConfig(actorUserId: string, entityType: 'delivery_zone' | 'pickup_location' | 'exchange_rate', entityId: string, action: string, previousValue: object | null, newValue: object): Promise<void> {
+    await this.pool.query('INSERT INTO delivery_config_audit_events (actor_user_id, entity_type, entity_id, action, previous_value, new_value) VALUES (?, ?, ?, ?, ?, ?)', [actorUserId, entityType, entityId, action, previousValue ? JSON.stringify(previousValue) : null, JSON.stringify(newValue)]);
   }
 }
 

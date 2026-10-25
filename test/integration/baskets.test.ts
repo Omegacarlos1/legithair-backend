@@ -16,6 +16,7 @@ describe('baskets and delivery quotes against MariaDB', function () {
   let customerToken: string;
   let otherCustomerToken: string;
   let adminToken: string;
+  let adminId: string;
   let customerAddressId: string;
   let otherAddressId: string;
   let guestToken: string;
@@ -40,7 +41,7 @@ describe('baskets and delivery quotes against MariaDB', function () {
     api = request(createApp({ pool, logger: pino({ level: 'silent' }), readinessTimeoutMs: 100, checkoutQuoteTtlSeconds: 2 }));
     ({ token: customerToken } = await registerVerifyAndLogin('basket.customer@example.test', 'Basket Customer'));
     ({ token: otherCustomerToken } = await registerVerifyAndLogin('basket.other@example.test', 'Other Customer'));
-    ({ token: adminToken } = await registerVerifyAndLogin('basket.admin@example.test', 'Basket Admin', true));
+    ({ token: adminToken, userId: adminId } = await registerVerifyAndLogin('basket.admin@example.test', 'Basket Admin', true));
     customerAddressId = await createAddress(customerToken, { city: 'Ikeja', state: 'Lagos' });
     otherAddressId = await createAddress(otherCustomerToken, { city: 'Ikeja', state: 'Lagos' });
     await seedProducts();
@@ -103,6 +104,8 @@ describe('baskets and delivery quotes against MariaDB', function () {
     const pickup = await api.post('/api/v1/admin/pickup-locations').set('authorization', `Bearer ${adminToken}`).send({ name: 'Synthetic Real-Shape Pickup', addressLine: '12 Synthetic Admin Road', city: 'Ikeja', state: 'Lagos', feeMinor: 50000, minBusinessDays: 1, maxBusinessDays: 2, isActive: false }).expect(201);
     await api.patch(`/api/v1/admin/pickup-locations/${pickup.body.data.pickupLocation.id}`).set('authorization', `Bearer ${adminToken}`).send({ isActive: true }).expect(200);
     await api.post('/api/v1/admin/pickup-locations').set('authorization', `Bearer ${adminToken}`).send({ name: 'Outside Pickup', addressLine: '12 Outside Road', city: 'Ibadan', state: 'Oyo', minBusinessDays: 1, maxBusinessDays: 2 }).expect(400);
+    const [audits] = await pool.query<Array<RowDataPacket & { count: number | string }>>('SELECT COUNT(1) AS count FROM delivery_config_audit_events WHERE actor_user_id = ?', [adminId]);
+    assert.ok(Number(audits[0]!.count) >= 4);
 
     const unsupportedGuest = await createGuest();
     await api.post('/api/v1/baskets/items').set('x-guest-basket-token', unsupportedGuest).send({ productId: product1, quantity: 1 }).expect(201);
