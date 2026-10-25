@@ -1,0 +1,14 @@
+Date: 2026-10-25 (Africa/Lagos)
+Milestone: B05 baskets and delivery quotations
+Decision: ACCEPTED by explicit owner instruction.
+
+The owner previously reported that all B05 manual Postman samples passed and then explicitly accepted B05 on 2026-10-25.
+
+The following gates remain open:
+- production MySQL migration, locking, and query-plan verification
+- real production pickup street address and selected courier's written fees and estimates
+- authorised production USD display rate
+- failed-delivery, redelivery, COD, returns, commission, and payout policy decisions for dependent milestones
+- earlier B03 identity/provider gates and the B04 production image-storage gate
+
+Evidence boundary: no exported Postman run artifact accompanied the owner report. The successful manual Postman result is owner-reported. Production checks remain NOT RUN and are not implied by acceptance. Real seller approval remains disabled, and synthetic pickup and seller fixtures must not be activated as production data.

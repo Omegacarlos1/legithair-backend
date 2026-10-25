@@ -1,6 +1,6 @@
 # B05 test results
 
-Date: 2026-10-25 (Africa/Lagos)
+Date: 2026-10-25 (Africa/Lagos); owner acceptance recorded 2026-10-25.
 
 | Check | Result | Counts or evidence |
 |---|---|---|
@@ -24,4 +24,4 @@ The standard `npm run test:unit`, `npm run test:api` and `npm run test:integrati
 
 Raw commands and output summaries are saved in [automated-tests.txt](evidence/B05/automated-tests.txt) and [local-database-and-fixtures.txt](evidence/B05/local-database-and-fixtures.txt). MariaDB results must not be described as production MySQL compatibility.
 
-The owner-reported manual result is recorded in [owner-postman-report.txt](evidence/B05/owner-postman-report.txt). It closes the manual exercise gate but does not constitute explicit B05 milestone acceptance.
+The owner-reported manual result is recorded in [owner-postman-report.txt](evidence/B05/owner-postman-report.txt). The owner explicitly accepted B05 on 2026-10-25 with production MySQL, production pickup/courier, and earlier milestone gates remaining open. See [owner-acceptance.txt](evidence/B05/owner-acceptance.txt). Acceptance does not convert any unexecuted production check into a pass.
