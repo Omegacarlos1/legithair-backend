@@ -16,7 +16,7 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run lint`, `npm run typecheck`, `npm test`
 - `npm run test:integration` (requires an isolated MariaDB test schema)
 - `npm run migrate`, `npm run migrate:down`
-- `npm run seed:test` (creates guarded synthetic B02-B04 fixtures, including two test-only approved sellers)
+- `npm run seed:test` (creates guarded synthetic B02-B05 fixtures, including two test-only approved sellers and quote inputs)
 
 ## B02 authentication fixtures
 
@@ -54,3 +54,9 @@ The reserved `POST /api/v1/sellers/me/verification` route returns `503 IDENTITY_
 B04 catalogue work is on `feature/B04-catalogue-stock`. Public browsing supports category, search, NGN minor-unit price, brand, colour and size metadata filters with stable pagination and sorting. Colour and size do not create variants. Popularity is stored as paid units sold and remains zero until the paid-order integration updates it.
 
 Seller catalogue writes require a verified and approved seller. Because B03's real identity provider remains deferred, only the guarded `_test` seed creates synthetic approved sellers for B04 verification. The seed is rejected outside a database ending in `_test`. Product images use generated private storage keys, JPEG/PNG/WebP signature validation, a configurable size limit, and controlled reads; production object storage is not yet configured.
+
+## B05 baskets and delivery quotes
+
+B05 supports isolated customer and token-protected guest baskets, explicit price refresh, safe login merge, approved Lagos zones, synthetic test-only pickup, admin-maintained indicative USD rates, and expiring idempotent checkout quotes. Delivery is charged once per distinct seller and retained by the company. Run migrations and the guarded test seed before the B05 Postman workflow. The seed creates two published synthetic products, the customer address, an active synthetic pickup location, and an indicative test rate; none can be seeded outside a database ending in `_test`.
+
+Set `GUEST_BASKET_TTL_DAYS` and `CHECKOUT_QUOTE_TTL_SECONDS` as needed. The production pickup location remains inactive until the owner supplies a real street address. B05 quotes check current stock but do not reserve it; B06 owns reservations.

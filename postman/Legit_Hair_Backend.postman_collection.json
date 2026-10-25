@@ -158,6 +158,56 @@
       "name": "B04 Other seller stock - forbidden",
       "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Idempotency-Key", "value": "postman-cross-seller-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"delta\":1,\"reason\":\"Cross seller attempt\"}" }, "url": "{{baseUrl}}/api/v1/seller/products/{{productId}}/stock" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('ownership enforced', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));" ] } }]
+    },
+    {
+      "name": "B05 Login seeded customer",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{fixtureEmail}}\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.environment.set('accessToken', pm.response.json().data.tokens.accessToken);" ] } }]
+    },
+    {
+      "name": "B05 Delivery options - seeded zones",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/delivery-options" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.test('three Lagos zones', () => pm.expect(b.data.zones.length).to.eql(3));", "pm.test('synthetic pickup available', () => pm.expect(b.data.pickupLocations.map(p => p.id)).to.include(pm.environment.get('b05PickupId')));" ] } }]
+    },
+    {
+      "name": "B05 Create guest basket - positive",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/baskets/guest" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('guestBasketToken', b.data.guestBasketToken);", "pm.test('credential returned once', () => pm.expect(b.data.guestBasketToken.length).to.be.above(31));" ] } }]
+    },
+    {
+      "name": "B05 Guest set first seller item",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{guestBasketToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('absolute quantity stored', () => pm.expect(pm.response.json().data.basket.items[0].quantity).to.eql(1));" ] } }]
+    },
+    {
+      "name": "B05 Guest set second seller item",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{guestBasketToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductTwoId}}\",\"quantity\":1}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('two sellers present', () => pm.expect(pm.response.json().data.basket.items.length).to.eql(2));" ] } }]
+    },
+    {
+      "name": "B05 Guest quote - unsupported address negative",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{guestBasketToken}}" }, { "key": "Idempotency-Key", "value": "postman-b05-unsupported-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"address\":{\"recipientName\":\"Synthetic Guest\",\"phone\":\"+2348000000000\",\"line1\":\"1 Outside Street\",\"city\":\"Ibadan\",\"state\":\"Oyo\",\"countryCode\":\"NG\"}}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 409', () => pm.response.to.have.status(409));", "pm.test('outside Lagos rejected', () => pm.expect(pm.response.json().error.code).to.eql('DELIVERY_ADDRESS_UNSUPPORTED'));" ] } }]
+    },
+    {
+      "name": "B05 Customer set existing product",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":2}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));" ] } }]
+    },
+    {
+      "name": "B05 Merge guest basket - positive",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "X-Guest-Basket-Token", "value": "{{guestBasketToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/baskets/merge" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const items=pm.response.json().data.basket.items; const first=items.find(i => i.productId===pm.environment.get('b05ProductOneId')); pm.test('duplicate quantity summed once', () => pm.expect(first.quantity).to.eql(3));" ] } }]
+    },
+    {
+      "name": "B05 Customer quote - two-seller positive",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "{{quoteIdempotencyKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"addressId\":\"{{b05AddressId}}\"}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["if (!pm.environment.get('quoteIdempotencyKey')) pm.environment.set('quoteIdempotencyKey', 'postman-quote-' + pm.variables.replaceIn('{{$randomUUID}}'));" ] } }, { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const q=pm.response.json().data.quote; pm.environment.set('quoteId', q.id);", "pm.test('two seller allocations', () => pm.expect(q.deliveryAllocations.length).to.eql(2));", "pm.test('NGN totals', () => { pm.expect(q.totals.itemsSubtotalMinor).to.eql(500000); pm.expect(q.totals.deliveryTotalMinor).to.eql(900000); pm.expect(q.totals.grandTotalMinor).to.eql(1400000); });", "pm.test('USD is indicative', () => pm.expect(q.usdIndicative.settlementCurrency).to.eql('NGN'));" ] } }]
+    },
+    {
+      "name": "B05 Customer quote - idempotent replay",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "{{quoteIdempotencyKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"addressId\":\"{{b05AddressId}}\"}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.test('same quote', () => pm.expect(b.data.quote.id).to.eql(pm.environment.get('quoteId')));", "pm.test('replay marked', () => pm.expect(b.data.idempotentReplay).to.eql(true));" ] } }]
     }
   ]
 }
