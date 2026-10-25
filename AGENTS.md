@@ -8,13 +8,13 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 ## Current milestone
 
-CURRENT_MILESTONE: B05
-STATUS: ACCEPTED
+CURRENT_MILESTONE: B06
+STATUS: READY_FOR_REVIEW
 STARTED: 2026-10-25
 READY_FOR_REVIEW: 2026-10-25
-ACCEPTED: 2026-10-25
-B01–B05 are ACCEPTED. All B06–B12 milestones are NOT_STARTED.
+B01–B05 are ACCEPTED. B06 is READY_FOR_REVIEW and is not owner-accepted. All B07–B12 milestones are NOT_STARTED.
 B03 was explicitly accepted with reduced scope. Dojah identity verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification remain open. Real seller approval remains disabled; B04 catalogue tests use explicitly synthetic approved-seller fixtures only and must not introduce a production approval bypass.
+B06 uses fail-closed order policy configuration. Commission basis/rate, reservation lifetime and COD eligibility/reconciliation remain owner decisions; automated values are synthetic test inputs only. Production order creation must remain disabled until those choices are approved and configured.
 
 ## Decisions before dependent implementation
 

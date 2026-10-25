@@ -1,6 +1,6 @@
 # Legit Hair backend
 
-B01 establishes an Express 5 and TypeScript API with MariaDB-backed readiness and migrations.
+B01-B06 provide the Express 5 and TypeScript backend foundation through transactional order reservations.
 
 ## Local setup with XAMPP MariaDB
 
@@ -17,6 +17,7 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run test:integration` (requires an isolated MariaDB test schema)
 - `npm run migrate`, `npm run migrate:down`
 - `npm run seed:test` (creates guarded synthetic B02-B05 fixtures, including two test-only approved sellers and quote inputs)
+- `npm run orders:release-expired` (idempotently releases due B06 reservations; schedule this in deployed environments)
 
 ## B02 authentication fixtures
 
@@ -60,3 +61,9 @@ Seller catalogue writes require a verified and approved seller. Because B03's re
 B05 supports isolated customer and token-protected guest baskets, explicit price refresh, safe login merge, approved Lagos zones, synthetic test-only pickup, admin-maintained indicative USD rates, and expiring idempotent checkout quotes. Delivery is charged once per distinct seller and retained by the company. Run migrations and the guarded test seed before the B05 Postman workflow. The seed creates two published synthetic products, the customer address, an active synthetic pickup location, and an indicative test rate; none can be seeded outside a database ending in `_test`.
 
 Set `GUEST_BASKET_TTL_DAYS` and `CHECKOUT_QUOTE_TTL_SECONDS` as needed. The production pickup location remains inactive until the owner supplies a real street address. B05 quotes check current stock but do not reserve it; B06 owns reservations.
+
+## B06 orders and inventory reservations
+
+`POST /api/v1/orders` converts one owned, unexpired quote into one customer order with seller suborders, immutable prices and commission snapshots, and transactionally reserved stock. `GET /api/v1/orders/:orderId` requires the owning customer token or the guest-specific tracking credential. Paystack orders remain `awaiting_payment`; B06 makes no Paystack call. Explicitly enabled COD orders remain `awaiting_collection` until later reconciliation work.
+
+Production order creation fails closed until the owner-approved policy is supplied through `ORDER_RESERVATION_TTL_SECONDS`, `ORDER_COMMISSION_BASIS`, and `ORDER_COMMISSION_RATE_BPS`. COD defaults off. Guest orders additionally require an uncommitted `ORDER_GUEST_TOKEN_SECRET` of at least 32 characters. The synthetic Postman workflow may enable COD and use test values only in the isolated `_test` environment; see `docs/decisions/0007-b06-order-policy-gates.md`.

@@ -1,0 +1,40 @@
+B06 local database and fixture evidence
+Date: 2026-10-25 (Africa/Lagos)
+
+DEVELOPMENT MIGRATION
+
+Environment: DATABASE_NAME=legit_hair_app, EMAIL_PROVIDER=fake
+Invocation: exported migrate('up') through the established process-local os.userInfo shim
+Result: PASS
+Output: Database connected successfully (legit_hair_app); migrations applied successfully.
+Verification query: server 10.4.32-MariaDB; migration007=1.
+
+DISPOSABLE TEST DATABASE
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Result: PASS
+Verification query: server 10.4.32-MariaDB; migration007=1.
+The full integration suite repeatedly rolled migrations 001-007 down and up and asserted all five B06 tables.
+
+GUARDED TEST SEED
+
+Invocation: exported seedTestFixtures() through the process-local host shim
+Result: PASS
+Output: Seeded 4 synthetic users, 2 synthetic approved sellers, and 2 B05/B06 checkout products. Login password: FixturePass123!
+
+SEED REFUSAL
+
+Environment: NODE_ENV=development, DATABASE_NAME=legit_hair_app
+Result: PASS
+Output: Refusing to seed: NODE_ENV must be test and DATABASE_NAME must end with _test
+
+EXPIRY WORKER SMOKE CHECK
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test
+Invocation: release-expired-reservations.ts through the process-local host shim
+Result: PASS
+Output: Released 0 expired order reservation(s).
+
+BOUNDARIES
+
+The local server is MariaDB, not production MySQL. Commission rate/basis, reservation lifetime and COD enablement in automated tests are synthetic test policy only. No Paystack, courier, identity-provider or other external network call was made.
