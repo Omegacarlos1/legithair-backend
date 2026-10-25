@@ -30,7 +30,27 @@ export async function seedTestFixtures(): Promise<void> {
         [seller.id, seller.userId, seller.businessName, fixtures[1].id]
       );
     }
-    process.stdout.write(`Seeded ${fixtures.length} synthetic users and ${syntheticSellers.length} synthetic approved sellers. Login password: FixturePass123!\n`);
+    await pool.query(`INSERT INTO categories (id, name, slug, is_active, created_by)
+      VALUES ('70000000-0000-4000-8000-000000000005', 'B05 Basket Fixtures', 'b05-basket-fixtures', TRUE, ?)
+      ON DUPLICATE KEY UPDATE name = VALUES(name), is_active = TRUE`, [fixtures[1].id]);
+    const basketProducts = [
+      { id: '40000000-0000-4000-8000-000000000051', sellerId: syntheticSellers[0]!.id, name: 'Synthetic B05 Straight Wig', slug: 'synthetic-b05-straight-wig', price: 100000 },
+      { id: '40000000-0000-4000-8000-000000000052', sellerId: syntheticSellers[1]!.id, name: 'Synthetic B05 Curly Wig', slug: 'synthetic-b05-curly-wig', price: 200000 }
+    ];
+    for (const product of basketProducts) {
+      await pool.query(`INSERT INTO products (id, seller_id, category_id, name, slug, description, price_minor, publication_status, stock_quantity, published_at)
+        VALUES (?, ?, '70000000-0000-4000-8000-000000000005', ?, ?, 'Guarded synthetic B05 basket and quote fixture.', ?, 'published', 10, NOW(3))
+        ON DUPLICATE KEY UPDATE seller_id = VALUES(seller_id), price_minor = VALUES(price_minor), publication_status = 'published', stock_quantity = 10, published_at = NOW(3)`, [product.id, product.sellerId, product.name, product.slug, product.price]);
+    }
+    await pool.query(`INSERT INTO addresses (id, user_id, label, recipient_name, phone, line1, city, state, country_code, is_default)
+      VALUES ('80000000-0000-4000-8000-000000000005', ?, 'B05 Home', 'Synthetic Customer', '+2348000000000', '10 Synthetic Street', 'Ikeja', 'Lagos', 'NG', TRUE)
+      ON DUPLICATE KEY UPDATE city = 'Ikeja', state = 'Lagos', country_code = 'NG', is_default = TRUE`, [fixtures[0].id]);
+    await pool.query(`INSERT INTO pickup_locations (id, name, address_line, city, state, fee_minor, min_business_days, max_business_days, is_active, is_synthetic, created_by)
+      VALUES ('60000000-0000-4000-8000-000000000005', 'Synthetic B05 Pickup Hub', '1 Synthetic Dispatch Road', 'Ikeja', 'Lagos', 0, 1, 3, TRUE, TRUE, ?)
+      ON DUPLICATE KEY UPDATE is_active = TRUE, is_synthetic = TRUE`, [fixtures[1].id]);
+    await pool.query(`INSERT INTO indicative_exchange_rates (currency, ngn_minor_per_currency_minor, updated_by)
+      VALUES ('USD', 1500, ?) ON DUPLICATE KEY UPDATE ngn_minor_per_currency_minor = 1500, updated_by = VALUES(updated_by), updated_at = NOW(3)`, [fixtures[1].id]);
+    process.stdout.write(`Seeded ${fixtures.length} synthetic users, ${syntheticSellers.length} synthetic approved sellers, and ${basketProducts.length} B05 products. Login password: FixturePass123!\n`);
   } finally {
     await pool.end();
   }

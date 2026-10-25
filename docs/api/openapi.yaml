@@ -212,9 +212,92 @@ paths:
         - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/StockAdjustment' } } } }
       responses: { '200': { description: Applied or safely replayed }, '403': { description: Admin role required }, '409': { description: Stock invariant violated } }
+  /api/v1/baskets/guest:
+    post:
+      summary: Create an expiring guest basket and return its raw credential once
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '201': { description: Guest basket created }, '429': { description: Rate limited } }
+  /api/v1/baskets/current:
+    get:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Read the current isolated customer or guest basket
+      responses: { '200': { description: Basket with observed/current prices and availability }, '401': { description: Missing, invalid, or expired credential } }
+  /api/v1/baskets/items:
+    post:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Set the absolute quantity of one published product
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SetBasketItem' } } } }
+      responses: { '201': { description: Basket item set }, '401': { description: Basket credential required }, '409': { description: Product unavailable, stock insufficient, or basket limit reached } }
+  /api/v1/baskets/items/{productId}:
+    delete:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Remove one product from the current basket
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Removed }, '404': { description: Basket item not found } }
+  /api/v1/baskets/refresh:
+    post:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Explicitly accept current prices after availability checks
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '200': { description: Prices refreshed }, '409': { description: One or more products unavailable } }
+  /api/v1/baskets/merge:
+    post:
+      security: [{ bearerAuth: [], guestBasketAuth: [] }]
+      summary: Merge a guest basket into the authenticated customer basket exactly once
+      responses: { '200': { description: Merged or safely replayed }, '409': { description: Quantity, line, stock, or prior-owner conflict } }
+  /api/v1/delivery-options:
+    get:
+      summary: List active Lagos delivery zones and pickup locations
+      responses: { '200': { description: Active options with NGN minor-unit fees and estimates } }
+  /api/v1/admin/delivery-zones/{zoneId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update an admin-managed Lagos delivery zone
+      parameters: [{ name: zoneId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDeliveryZone' } } } }
+      responses: { '200': { description: Zone updated }, '403': { description: Admin role required }, '404': { description: Zone not found } }
+  /api/v1/admin/delivery-zones:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create an admin-managed Lagos delivery zone
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDeliveryZone' } } } }
+      responses: { '201': { description: Zone created }, '403': { description: Admin role required }, '409': { description: Zone code already exists } }
+  /api/v1/admin/pickup-locations:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create an admin-managed Lagos pickup location
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePickupLocation' } } } }
+      responses: { '201': { description: Pickup location created }, '400': { description: Invalid or non-Lagos location }, '403': { description: Admin role required } }
+  /api/v1/admin/pickup-locations/{pickupLocationId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update or deactivate an admin-managed pickup location
+      parameters: [{ name: pickupLocationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdatePickupLocation' } } } }
+      responses: { '200': { description: Pickup location updated }, '400': { description: Invalid or non-Lagos location }, '403': { description: Admin role required }, '404': { description: Pickup location not found } }
+  /api/v1/admin/exchange-rates/usd:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Set the indicative USD rate used for display only
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [ngnMinorPerUsdMinor], additionalProperties: false, properties: { ngnMinorPerUsdMinor: { type: integer, minimum: 1 } } } } } }
+      responses: { '200': { description: Rate and timestamp updated }, '403': { description: Admin role required } }
+  /api/v1/checkout/quotes:
+    post:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Create an immutable expiring NGN quote with per-seller delivery allocation
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutQuoteInput' } } } }
+      responses: { '201': { description: Quote created }, '200': { description: Idempotent replay }, '400': { description: Invalid request or idempotency key }, '409': { description: Stale price, unavailable product, unsupported address, or key conflict } }
+  /api/v1/checkout/quotes/{quoteId}:
+    get:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Read an unexpired quote owned by the current basket
+      parameters: [{ name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Immutable quote snapshot }, '404': { description: Quote not found or not owned }, '410': { description: Quote expired } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
+    guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
   schemas:
     Register:
       type: object
@@ -303,3 +386,87 @@ components:
       properties:
         delta: { type: integer, minimum: -2000000000, maximum: 2000000000, not: { const: 0 } }
         reason: { type: string, minLength: 3, maxLength: 500 }
+    SetBasketItem:
+      type: object
+      required: [productId, quantity]
+      additionalProperties: false
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, maximum: 20, description: Absolute desired quantity, not an increment. }
+    UpdateDeliveryZone:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        coverage: { type: array, minItems: 1, maxItems: 100, items: { type: string, minLength: 2, maxLength: 100 } }
+        feeMinor: { type: integer, minimum: 0, description: NGN minor units charged per distinct seller. }
+        minBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        maxBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        isActive: { type: boolean }
+    CreateDeliveryZone:
+      type: object
+      required: [code, name, coverage, feeMinor, minBusinessDays, maxBusinessDays]
+      additionalProperties: false
+      properties:
+        code: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$', maxLength: 50 }
+        name: { type: string, minLength: 2, maxLength: 100 }
+        coverage: { type: array, minItems: 1, maxItems: 100, items: { type: string, minLength: 2, maxLength: 100 } }
+        feeMinor: { type: integer, minimum: 0 }
+        minBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        maxBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        isActive: { type: boolean, default: true }
+    CreatePickupLocation:
+      type: object
+      required: [name, addressLine, city, state, minBusinessDays, maxBusinessDays]
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        addressLine: { type: string, minLength: 5, maxLength: 250 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100, description: Must be Lagos. }
+        feeMinor: { type: integer, minimum: 0, default: 0 }
+        minBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        maxBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        isActive: { type: boolean, default: false }
+    UpdatePickupLocation:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        addressLine: { type: string, minLength: 5, maxLength: 250 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100, description: Must be Lagos. }
+        feeMinor: { type: integer, minimum: 0 }
+        minBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        maxBusinessDays: { type: integer, minimum: 0, maximum: 30 }
+        isActive: { type: boolean }
+    GuestDeliveryAddress:
+      type: object
+      required: [recipientName, phone, line1, city, state, countryCode]
+      additionalProperties: false
+      properties:
+        recipientName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        line1: { type: string, minLength: 3, maxLength: 200 }
+        line2: { type: string, minLength: 1, maxLength: 200 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100 }
+        countryCode: { type: string, minLength: 2, maxLength: 2, default: NG }
+    CheckoutQuoteInput:
+      oneOf:
+        - type: object
+          required: [deliveryMethod, zoneId]
+          additionalProperties: false
+          properties:
+            deliveryMethod: { const: delivery }
+            zoneId: { type: string, format: uuid }
+            addressId: { type: string, format: uuid, description: Required for authenticated customers. }
+            address: { $ref: '#/components/schemas/GuestDeliveryAddress' }
+        - type: object
+          required: [deliveryMethod, pickupLocationId]
+          additionalProperties: false
+          properties:
+            deliveryMethod: { const: pickup }
+            pickupLocationId: { type: string, format: uuid }

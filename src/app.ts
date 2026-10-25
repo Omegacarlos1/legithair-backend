@@ -7,11 +7,12 @@ import { AppError } from './http/errors.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSellerRouter } from './sellers/router.js';
 import { createCatalogRouter } from './catalog/router.js';
+import { createBasketRouter } from './baskets/router.js';
 import { ZodError } from 'zod';
 
-interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number }
+interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number }
 
-export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024 }: AppDependencies): express.Express {
+export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900 }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb' }));
@@ -44,6 +45,7 @@ export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot =
   app.use('/api/v1', createAuthRouter(pool));
   app.use('/api/v1', createSellerRouter(pool));
   app.use('/api/v1', createCatalogRouter(pool, imageStorageRoot, imageMaxBytes));
+  app.use('/api/v1', createBasketRouter(pool, guestBasketTtlDays, checkoutQuoteTtlSeconds));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;

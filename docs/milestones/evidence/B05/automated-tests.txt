@@ -1,0 +1,57 @@
+B05 automated verification evidence
+Date: 2026-10-25 (Africa/Lagos)
+Branch: feature/B05-baskets-delivery
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+Command: npm run lint
+Result: PASS (exit 0, 0 ESLint errors)
+
+Command: npm run typecheck
+Result: PASS (exit 0, 0 TypeScript errors)
+
+Command: npm run build
+Result: PASS (exit 0)
+
+UNIT AND API CHECKS
+
+The normal tsx executable cannot start on this Codex Windows host because uv_os_get_passwd returns ENOMEM. The same repository Mocha suites were executed with a process-local os.userInfo shim before loading tsx/cjs:
+
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+
+Result: PASS
+Counts: 18 passing, 0 failing, 0 skipped
+Breakdown: 7 unit and 11 Supertest API assertions.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Database server: 10.4.32-MariaDB
+Command used the same process-local Windows host shim and ran test/integration/**/*.test.ts.
+
+Result: PASS
+Counts: 33 passing, 0 failing, 0 skipped
+B05-specific scenarios: 6 passing.
+
+B05 scenarios proved:
+- guest and customer baskets are isolated and guest credentials are hashed;
+- POST item quantity is absolute and unavailable stock is rejected;
+- admin zones and pickup locations are manageable and non-Lagos addresses fail;
+- concurrent merge replay cannot duplicate quantities and merge limits are atomic;
+- two-seller fee allocation, integer totals and USD display rounding are deterministic;
+- customer address and quote ownership are enforced;
+- quote idempotency replays the same request and rejects changed input;
+- stale price and stock-loss paths fail until explicit refresh/restoration;
+- pickup quotes have zero seeded fee and expired quotes return 410;
+- migrations 001-006 apply after a full disposable-schema rollback.
+
+CONTRACT PARSE
+
+Command: node -e parsing collection/environment with JSON.parse and OpenAPI with js-yaml
+Result: PASS - Postman JSON and OpenAPI YAML parsed successfully.
+
+NORMAL WRAPPER EVIDENCE
+
+Commands: npm run test:unit; npm run test:api
+Result: HOST BLOCKED before discovery by uv_os_get_passwd/ENOMEM. Equivalent invocations above passed. This was not counted as a test failure.

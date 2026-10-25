@@ -1,0 +1,9 @@
+Date: 2026-10-25 (Africa/Lagos)
+Milestone: B05 baskets and delivery quotations
+Evidence: OWNER-REPORTED PASS
+
+The owner stated: "All B05 manual Postman tests passed."
+
+The manual instructions covered customer login, delivery-option retrieval, secure guest-basket creation, products from two sellers, unsupported non-Lagos delivery rejection, customer basket creation, guest-to-customer merge, deterministic two-seller quote totals, and idempotent quote replay.
+
+Evidence boundary: no exported Postman Collection Runner result or screenshot accompanied the report. This records the owner's manual result and does not independently reproduce it. Production MySQL, the real pickup address, the selected courier quotation, and earlier B03/B04 gates remain open. B05 remains READY_FOR_REVIEW until the owner explicitly accepts it.
