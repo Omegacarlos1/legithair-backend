@@ -307,12 +307,50 @@ paths:
       summary: Read an order owned by the customer or guest tracking credential
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Order, seller suborders, immutable item snapshots, and reservations }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
+  /api/v1/payments/initialize:
+    post:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Persist and initialize the owned order's server-controlled Paystack NGN payment
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InitializePayment' } } } }
+      responses: { '201': { description: Payment attempt persisted and initialized }, '200': { description: Existing attempt returned }, '400': { description: Guest email required or input invalid }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible }, '409': { description: Order not payable, reservation expired, or email changed }, '503': { description: Paystack unconfigured or temporarily unavailable } }
+  /api/v1/payments/verify:
+    post:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Verify the persisted order reference with Paystack and settle only exact matches
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyPayment' } } } }
+      responses: { '200': { description: Provider result reconciled, including pending or idempotent success }, '401': { description: Access credential required }, '404': { description: Order/payment absent or inaccessible }, '409': { description: Supplied reference or verified provider fields mismatch }, '503': { description: Paystack temporarily unavailable } }
+  /api/v1/payments/webhooks/paystack:
+    post:
+      summary: Receive raw-body HMAC SHA-512 authenticated Paystack events
+      parameters: [{ name: X-Paystack-Signature, in: header, required: true, schema: { type: string, pattern: '^[A-Fa-f0-9]{128}$' } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [event, data] } } } }
+      responses: { '200': { description: Authenticated event processed, ignored, rejected, or deduplicated }, '401': { description: Forged or missing signature } }
+  /api/v1/orders/{orderId}/receipt:
+    get:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Download the immutable JSON receipt for a timely verified payment
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: JSON receipt with Content-Disposition attachment }, '401': { description: Access credential required }, '404': { description: Receipt absent or inaccessible } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
     guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
     orderTrackingAuth: { type: apiKey, in: header, name: X-Order-Tracking-Token }
   schemas:
+    InitializePayment:
+      type: object
+      required: [orderId]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        email: { type: string, format: email, description: Required only for a guest order's first initialization. }
+    VerifyPayment:
+      type: object
+      required: [orderId, reference]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        reference: { type: string, minLength: 3, maxLength: 100, pattern: '^[A-Za-z0-9.=-]+$' }
     Register:
       type: object
       required: [email, password, displayName]

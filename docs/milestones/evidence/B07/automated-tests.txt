@@ -1,0 +1,53 @@
+B07 automated verification evidence
+Date: 2026-10-26 (Africa/Lagos)
+Branch: feature/B07-paystack-payments
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+Command: npm run lint
+Result: PASS (exit 0, 0 ESLint errors)
+
+Command: npm run typecheck
+Result: PASS (exit 0, 0 TypeScript errors)
+
+Command: npm run build
+Result: PASS (exit 0)
+
+UNIT AND SUPERTEST API CHECKS
+
+The normal tsx executable remains host-blocked before discovery by uv_os_get_passwd/ENOMEM. The established process-local os.userInfo shim loaded tsx/cjs and executed the repository TypeScript suites:
+
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+
+Result: PASS
+Counts: 28 passing, 0 failing, 0 skipped
+Breakdown: 13 unit assertions and 15 Supertest API assertions.
+
+B07 unit/API evidence includes server-controlled Paystack initialization fields, unsigned-ID string storage, raw-body HMAC SHA-512 validation, fail-closed configuration, receipt email rendering, payment route ownership, and forged-signature rejection before database work.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Database server: local MariaDB 10.4.32 (not production MySQL)
+Command: the same process-local shim ran test/integration/**/*.test.ts.
+
+Result: PASS
+Counts: 44 passing, 0 failing, 0 skipped
+B07-specific scenarios: 7 passing.
+
+B07 scenarios proved:
+- exact amount, NGN currency, persisted reference and order/payment metadata association are required before settlement;
+- a timely success atomically marks paid, consumes reservations, appends one ledger entry, creates one receipt, enqueues one receipt email and emits one outbox event;
+- replayed verification and duplicate signed webhooks do not duplicate receipts, ledger entries or email jobs;
+- callback reference tampering does not call the provider and wrong amount opens a review case without delivering value;
+- customer and guest ownership are enforced; a guest must supply an email and retains receipt access only through its tracking credential;
+- a provider timeout leaves one persisted attempt and retry uses the same reference;
+- an injected crash at ledger insertion rolls back payment, order, webhook and receipt changes, and the same webhook then recovers safely;
+- a late payment is flagged for controlled resolution and cannot consume another order's reservation or decrement its stock;
+- migrations 001-008 repeatedly roll down and up on the disposable schema and all B01-B07 tables exist.
+
+NORMAL WRAPPER EVIDENCE
+
+Commands attempted earlier in this milestone: npm run test:unit; npm run test:api; npm run test:integration
+Result: HOST BLOCKED before discovery by uv_os_get_passwd/ENOMEM. Equivalent Mocha invocations above executed all assertions successfully. This host fault is not counted as an application assertion failure.

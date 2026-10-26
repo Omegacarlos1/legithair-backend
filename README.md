@@ -1,6 +1,6 @@
 # Legit Hair backend
 
-B01-B06 provide the Express 5 and TypeScript backend foundation through transactional order reservations.
+B01-B07 provide the Express 5 and TypeScript backend foundation through verified Paystack payments and paid receipts.
 
 ## Local setup with XAMPP MariaDB
 
@@ -16,8 +16,10 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run lint`, `npm run typecheck`, `npm test`
 - `npm run test:integration` (requires an isolated MariaDB test schema)
 - `npm run migrate`, `npm run migrate:down`
-- `npm run seed:test` (creates guarded synthetic B02-B05 fixtures, including two test-only approved sellers and quote inputs)
+- `npm run seed:test` (creates guarded synthetic B02-B07 fixtures, including two test-only approved sellers and quote inputs)
 - `npm run orders:release-expired` (idempotently releases due B06 reservations; schedule this in deployed environments)
+- `npm run payments:reconcile` (verifies persisted pending Paystack references; alerts with a non-zero exit on provider failures)
+- `npm run payments:verify-provider` (explicit Paystack test-mode acceptance; refuses live keys)
 
 ## B02 authentication fixtures
 
@@ -67,3 +69,11 @@ Set `GUEST_BASKET_TTL_DAYS` and `CHECKOUT_QUOTE_TTL_SECONDS` as needed. The prod
 `POST /api/v1/orders` converts one owned, unexpired quote into one customer order with seller suborders, immutable prices and commission snapshots, and transactionally reserved stock. `GET /api/v1/orders/:orderId` requires the owning customer token or the guest-specific tracking credential. Paystack orders remain `awaiting_payment`; B06 makes no Paystack call. Explicitly enabled COD orders remain `awaiting_collection` until later reconciliation work.
 
 Production order creation fails closed until the owner-approved policy is supplied through `ORDER_RESERVATION_TTL_SECONDS`, `ORDER_COMMISSION_BASIS`, and `ORDER_COMMISSION_RATE_BPS`. COD defaults off. Guest orders additionally require an uncommitted `ORDER_GUEST_TOKEN_SECRET` of at least 32 characters. The synthetic Postman workflow may enable COD and use test values only in the isolated `_test` environment; see `docs/decisions/0007-b06-order-policy-gates.md`.
+
+## B07 Paystack payments and paid receipts
+
+Configure `PAYSTACK_SECRET_KEY` only on the backend. `POST /api/v1/payments/initialize` creates or reuses the single persisted reference for an owned Paystack order; `POST /api/v1/payments/verify` independently queries Paystack; and the signed webhook endpoint is `/api/v1/payments/webhooks/paystack`. The webhook signature is computed over exact raw JSON bytes. Browser callbacks never mark an order paid.
+
+Valid success atomically consumes the reservation, marks the order paid, records one ledger entry, creates one downloadable JSON receipt, and queues one receipt email. Late success opens a controlled review case and does not reacquire stock or issue a paid-order receipt. See `docs/api/payments.md` and ADR 0008.
+
+Local setup may leave `PAYSTACK_SECRET_KEY` blank; payment routes then fail closed with `503 PAYMENT_PROVIDER_NOT_CONFIGURED`. For explicit provider testing, add a Paystack `sk_test_...` key and `PAYSTACK_ACCEPTANCE_EMAIL` only to the uncommitted environment and run `npm run payments:verify-provider`. This creates and verifies a test transaction but does not complete a payment. Live keys, public webhook reachability, and production settlement remain separate acceptance gates.

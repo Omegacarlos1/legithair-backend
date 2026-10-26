@@ -1,0 +1,24 @@
+B07 Postman and API contract evidence
+Date: 2026-10-26 (Africa/Lagos)
+
+Command: JSON.parse both postman/Legit_Hair_Backend.postman_collection.json and postman/Local.postman_environment.json
+Result: PASS - both exports are valid JSON and remain importable.
+
+Command: js-yaml parse docs/api/openapi.yaml
+Result: PASS - OpenAPI YAML parses successfully.
+
+Collection coverage added:
+- initialize the current B06 Paystack order and save paymentId, paymentReference and paystackCheckoutUrl;
+- reject initialization without an order-owner credential;
+- reject a tampered callback reference before a provider call;
+- verify the persisted reference and assert an explicit pending/succeeded outcome;
+- reject a forged webhook signature;
+- download the JSON receipt after a completed Paystack test payment and assert attachment/order fields.
+
+Fixture setup:
+1. Set NODE_ENV=test and DATABASE_NAME=legit_hair_app_test.
+2. Run npm run migrate and npm run seed:test.
+3. Configure synthetic B06 order policy values only in the isolated test environment.
+4. Import the collection and Local environment, run B05 Login through B06 Create Paystack order, then run the B07 requests.
+
+No Paystack secret exists in either Postman export. A positive signed webhook must be delivered by Paystack test mode to a public HTTPS endpoint; it is not fabricated in Postman. Manual owner Postman execution has not yet been reported, so this is contract/parse evidence rather than owner acceptance.

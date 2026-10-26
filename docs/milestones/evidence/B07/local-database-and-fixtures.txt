@@ -1,0 +1,33 @@
+B07 local database and fixture evidence
+Date: 2026-10-26 (Africa/Lagos)
+
+DEVELOPMENT MIGRATION
+
+Database: legit_hair_app
+Invocation: exported migrate('up') through the established process-local os.userInfo shim
+Result: PASS
+Output: Database connected successfully (legit_hair_app); migrations applied successfully.
+Migration 008 creates payments, signed webhook event deduplication, payment ledger entries, review cases and paid receipts, and adds nullable durable-job deduplication.
+
+DISPOSABLE TEST DATABASE
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Server: MariaDB 10.4.32
+Result: PASS
+The full integration suite repeatedly rolled migrations 001-008 down and up and asserted all five B07 tables plus the earlier schema.
+
+GUARDED TEST SEED
+
+Invocation: exported seedTestFixtures() through the process-local host shim
+Result: PASS
+Output: Seeded 4 synthetic users, 2 synthetic approved sellers, and 2 B05-B07 checkout products. Login password: FixturePass123!
+
+SEED REFUSAL
+
+Environment: NODE_ENV=development, DATABASE_NAME=legit_hair_app
+Result: PASS
+Output: Refusing to seed: NODE_ENV must be test and DATABASE_NAME must end with _test
+
+BOUNDARIES
+
+This is MariaDB evidence, not production MySQL compatibility. B06 commission/reservation/COD policy values in integration tests are synthetic. Payment tests used an in-process fake Paystack adapter and synthetic identities only. No external provider call or real money movement occurred.
