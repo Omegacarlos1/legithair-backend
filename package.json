@@ -21,6 +21,8 @@
     "migrate:down": "tsx src/database/migrate.ts down",
     "seed:test": "tsx scripts/seed-test.ts",
     "orders:release-expired": "tsx scripts/release-expired-reservations.ts",
+    "payments:reconcile": "tsx scripts/reconcile-payments.ts",
+    "payments:verify-provider": "tsx scripts/verify-paystack.ts",
     "email:work-once": "tsx scripts/process-email-once.ts",
     "email:worker": "tsx scripts/process-email-worker.ts",
     "email:verify-provider": "tsx scripts/verify-gmail.ts"

@@ -1,7 +1,9 @@
 import type { Pool, RowDataPacket } from 'mysql2/promise';
 import type { EmailProvider } from './provider.js';
 
-interface JobRow extends RowDataPacket { id: number; job_type: 'send_verification' | 'send_password_reset'; payload: string | { to: string; token: string } }
+interface TokenPayload { to: string; token: string }
+interface ReceiptPayload { to: string; orderId: string; receiptNumber: string; amountMinor: number; currency: string }
+interface JobRow extends RowDataPacket { id: number; job_type: 'send_verification' | 'send_password_reset' | 'send_paid_receipt'; payload: string | TokenPayload | ReceiptPayload }
 
 export async function processOneEmailJob(pool: Pool, provider: EmailProvider): Promise<boolean> {
   const connection = await pool.getConnection(); let job: JobRow | undefined;
@@ -13,9 +15,15 @@ export async function processOneEmailJob(pool: Pool, provider: EmailProvider): P
     await connection.query("UPDATE durable_jobs SET status = 'processing', attempts = attempts + 1, locked_at = NOW(3), locked_by = 'local-email-worker' WHERE id = ?", [job.id]);
     await connection.commit();
   } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
-  const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) as { to: string; token: string } : job.payload;
+  const payload = typeof job.payload === 'string' ? JSON.parse(job.payload) as TokenPayload | ReceiptPayload : job.payload;
   try {
-    await provider.send({ to: payload.to, token: payload.token, template: job.job_type === 'send_verification' ? 'verification' : 'password_reset' });
+    if (job.job_type === 'send_paid_receipt') {
+      const receipt = payload as ReceiptPayload;
+      await provider.send({ to: receipt.to, template: 'paid_receipt', orderId: receipt.orderId, receiptNumber: receipt.receiptNumber, amountMinor: receipt.amountMinor, currency: receipt.currency });
+    } else {
+      const token = payload as TokenPayload;
+      await provider.send({ to: token.to, token: token.token, template: job.job_type === 'send_verification' ? 'verification' : 'password_reset' });
+    }
     await pool.query("UPDATE durable_jobs SET status = 'completed', locked_at = NULL, locked_by = NULL, last_error = NULL WHERE id = ?", [job.id]); return true;
   } catch (error) {
     await pool.query("UPDATE durable_jobs SET status = 'pending', available_at = DATE_ADD(NOW(3), INTERVAL LEAST(attempts * attempts, 60) MINUTE), locked_at = NULL, locked_by = NULL, last_error = ? WHERE id = ?", [error instanceof Error ? error.message.slice(0, 1000) : 'Email provider failed', job.id]); throw error;
