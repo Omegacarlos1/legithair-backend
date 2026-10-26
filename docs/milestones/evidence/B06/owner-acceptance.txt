@@ -1,0 +1,22 @@
+Date: 2026-10-26 (Africa/Lagos)
+Milestone: B06 orders and inventory reservations
+Decision: ACCEPTED by explicit owner instruction.
+
+The owner reported that the B06 Postman workflow passed and explicitly accepted B06 on 2026-10-26.
+
+The following gates remain open:
+- production MySQL migration, transaction-locking, deadlock, and query-plan verification
+- owner-approved commission basis and rate
+- owner-approved inventory reservation lifetime
+- owner-approved COD eligibility and collection reconciliation
+- deployment scheduling and monitoring for expired-reservation release
+- B07 Paystack test credentials and provider acceptance
+- earlier identity, seller-approval, production image-storage, pickup, and courier gates
+
+Evidence boundary: no exported Postman run artifact accompanied the owner report. The successful manual result is owner-reported. Production and provider checks remain NOT RUN and are not implied by acceptance. Production order creation remains fail-closed until the required commercial policies are approved and configured.
+
+Acceptance-record verification performed on 2026-10-26:
+- `npm run lint`: PASS, exit 0
+- `npm run typecheck`: PASS, exit 0
+- `npm run build`: PASS, exit 0
+- Node JSON/YAML parse of the Postman collection, local environment, and OpenAPI document: PASS, exit 0
