@@ -294,10 +294,24 @@ paths:
       summary: Read an unexpired quote owned by the current basket
       parameters: [{ name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Immutable quote snapshot }, '404': { description: Quote not found or not owned }, '410': { description: Quote expired } }
+  /api/v1/orders:
+    post:
+      security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
+      summary: Atomically create one order and reserve quoted inventory
+      parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateOrder' } } } }
+      responses: { '201': { description: Order and reservations created }, '200': { description: Identical idempotent replay }, '401': { description: Owner credential required }, '404': { description: Quote not found or not owned }, '409': { description: Changed replay, unavailable stock, used quote, or unavailable COD }, '410': { description: Quote expired }, '503': { description: Order policy or guest credential generation not configured } }
+  /api/v1/orders/{orderId}:
+    get:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Read an order owned by the customer or guest tracking credential
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Order, seller suborders, immutable item snapshots, and reservations }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
     guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
+    orderTrackingAuth: { type: apiKey, in: header, name: X-Order-Tracking-Token }
   schemas:
     Register:
       type: object
@@ -470,3 +484,10 @@ components:
           properties:
             deliveryMethod: { const: pickup }
             pickupLocationId: { type: string, format: uuid }
+    CreateOrder:
+      type: object
+      required: [quoteId, paymentMethod]
+      additionalProperties: false
+      properties:
+        quoteId: { type: string, format: uuid }
+        paymentMethod: { type: string, enum: [paystack, cod] }

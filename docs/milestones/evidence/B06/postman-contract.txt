@@ -1,0 +1,10 @@
+B06 Postman and contract evidence
+Date: 2026-10-25 (Africa/Lagos)
+
+The collection and environment parsed successfully as JSON. docs/api/openapi.yaml parsed successfully with js-yaml.
+
+The collection includes B06 customer order creation, idempotent replay, changed-key-payload rejection, authenticated read, unauthenticated read rejection, guest basket/quote setup, controlled COD creation, wrong guest tracking token rejection and successful guest tracking.
+
+Manual Postman execution: NOT RUN. No owner-reported result or exported run artifact exists for B06 yet.
+
+Required setup is documented in B06-summary.md. The test environment contains placeholders only; it contains no database password, HMAC secret, API key or provider credential.

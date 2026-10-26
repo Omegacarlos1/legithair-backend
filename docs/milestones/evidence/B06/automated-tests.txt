@@ -1,0 +1,56 @@
+B06 automated verification evidence
+Date: 2026-10-25 (Africa/Lagos)
+Branch: feature/B06-orders-inventory-reservations
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+Command: npm run lint
+Result: PASS (exit 0, 0 ESLint errors)
+
+Command: npm run typecheck
+Result: PASS (exit 0, 0 TypeScript errors)
+
+Command: npm run build
+Result: PASS (exit 0)
+
+UNIT AND SUPERTEST API CHECKS
+
+The normal tsx executable cannot start on this Codex Windows host because uv_os_get_passwd returns ENOMEM. The same repository suites were executed with the established process-local os.userInfo shim before loading tsx/cjs:
+
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+
+Result: PASS
+Counts: 21 passing, 0 failing, 0 skipped
+Breakdown: 8 unit assertions and 13 Supertest API assertions; 1 new configuration assertion and 2 new B06 access-control assertions.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Database server: 10.4.32-MariaDB
+Command: the same process-local shim ran test/integration/**/*.test.ts.
+
+Result: PASS
+Counts: 37 passing, 0 failing, 0 skipped
+B06-specific scenarios: 4 passing.
+
+B06 scenarios proved:
+- simultaneous checkouts for the final unit produce one 201 reservation and one 409 rejection, including bounded deadlock retry and stock revalidation;
+- identical checkout keys return the same order while changed input is rejected;
+- product price, name, quantity, commission basis/rate/amount and seller totals are snapshotted;
+- an injected database failure during order-item insertion rolls back orders and seller suborders with no orphan rows;
+- two concurrent expiry workers release one reservation exactly once and restore stock once;
+- invalid order-state transitions fail and valid cancellation releases inventory;
+- guest orders require the HMAC-derived tracking credential; missing and wrong credentials fail;
+- explicitly enabled synthetic COD creates awaiting_collection without a provider call;
+- migrations 001-007 apply after a full disposable-schema rollback.
+
+CONTRACT PARSE
+
+Command: node -e parsing the collection/environment with JSON.parse and OpenAPI with js-yaml
+Result: PASS - both Postman JSON exports and OpenAPI YAML parsed successfully.
+
+NORMAL WRAPPER EVIDENCE
+
+Commands: npm run test:unit; npm run test:api; npm run test:integration
+Result: HOST BLOCKED before discovery by uv_os_get_passwd/ENOMEM. Equivalent invocations above passed. This host fault is not counted as an application test failure.

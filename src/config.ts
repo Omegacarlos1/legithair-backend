@@ -9,6 +9,10 @@ const optionalGmailAppPassword = z.preprocess(
   (value) => typeof value === 'string' ? value.replace(/\s/g, '') || undefined : value,
   z.string().length(16).optional()
 );
+const optionalNumber = (minimum: number, maximum: number): z.ZodType<number | undefined> => z.preprocess(
+  (value) => value === '' || value === undefined ? undefined : value,
+  z.coerce.number().int().min(minimum).max(maximum).optional()
+);
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']),
@@ -30,7 +34,12 @@ const schema = z.object({
   IMAGE_STORAGE_ROOT: z.string().trim().min(1).default('storage/product-images'),
   IMAGE_MAX_BYTES: z.coerce.number().int().min(1024).max(20 * 1024 * 1024).default(5 * 1024 * 1024),
   GUEST_BASKET_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
-  CHECKOUT_QUOTE_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900)
+  CHECKOUT_QUOTE_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+  ORDER_RESERVATION_TTL_SECONDS: optionalNumber(60, 604800),
+  ORDER_COMMISSION_BASIS: z.preprocess((value) => value === '' ? undefined : value, z.enum(['line_item_gross']).optional()),
+  ORDER_COMMISSION_RATE_BPS: optionalNumber(0, 10000),
+  COD_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
+  ORDER_GUEST_TOKEN_SECRET: z.preprocess((value) => value === '' ? undefined : value, z.string().min(32).optional())
 }).superRefine((config, context) => {
   if (config.EMAIL_PROVIDER !== 'gmail') return;
   if (!config.GMAIL_USER) context.addIssue({ code: 'custom', path: ['GMAIL_USER'], message: 'GMAIL_USER is required for Gmail delivery' });
