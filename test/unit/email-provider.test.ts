@@ -31,4 +31,15 @@ describe('Gmail email provider', () => {
     assert.match(String(messages[0]!.html), /&lt;synthetic-token&gt;/);
     assert.deepEqual(messages[0]!.from, { name: 'Legit Hair', address: 'sender@gmail.com' });
   });
+
+  it('renders paid receipt details without exposing provider secrets', async () => {
+    const messages: SendMailOptions[] = [];
+    const provider = new GmailEmailProvider(
+      { user: 'sender@gmail.com', appPassword: 'abcdefghijklmnop', fromName: 'Legit Hair' },
+      { sendMail: async (message: SendMailOptions): Promise<unknown> => { messages.push(message); return {}; }, verify: async (): Promise<unknown> => true }
+    );
+    await provider.send({ to: 'customer@example.test', template: 'paid_receipt', orderId: 'order-1', receiptNumber: 'LH-RECEIPT-1', amountMinor: 125050, currency: 'NGN' });
+    assert.equal(messages[0]!.subject, 'Your Legit Hair receipt LH-RECEIPT-1');
+    assert.match(String(messages[0]!.text), /NGN 1250\.50/);
+  });
 });

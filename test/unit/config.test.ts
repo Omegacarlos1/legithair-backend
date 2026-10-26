@@ -34,4 +34,12 @@ describe('configuration', () => {
     assert.equal(configured.ORDER_COMMISSION_RATE_BPS, 1000);
     assert.equal(configured.COD_ENABLED, true);
   });
+
+  it('keeps Paystack fail-closed and validates an explicitly supplied server secret', () => {
+    const base = { NODE_ENV: 'test', PORT: '3000', DATABASE_HOST: 'localhost', DATABASE_USER: 'test', DATABASE_PASSWORD: '', DATABASE_NAME: 'legit_hair_test' };
+    assert.equal(loadConfig(base).PAYSTACK_SECRET_KEY, undefined);
+    assert.throws(() => loadConfig({ ...base, PAYSTACK_SECRET_KEY: 'pk_test_public_key_must_not_be_used' }), /PAYSTACK_SECRET_KEY/);
+    const configured = loadConfig({ ...base, PAYSTACK_SECRET_KEY: 'sk_test_syntheticsecret000001', PAYSTACK_TIMEOUT_MS: '1500' });
+    assert.equal(configured.PAYSTACK_TIMEOUT_MS, 1500);
+  });
 });
