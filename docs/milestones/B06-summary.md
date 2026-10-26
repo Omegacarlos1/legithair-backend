@@ -1,6 +1,6 @@
 # B06 orders and inventory reservations summary
 
-Status: READY_FOR_REVIEW on 2026-10-25. B05 acceptance and evidence were confirmed before implementation. B06 is locally verified but is not owner-accepted.
+Status: ACCEPTED by the owner on 2026-10-26 after local verification and an owner-reported successful manual Postman run. B05 acceptance and evidence were confirmed before implementation. The documented production and policy gates remain open.
 
 ## Scope completed
 
@@ -42,13 +42,14 @@ The normal `tsx` npm test wrappers are host-blocked before discovery by `uv_os_g
 3. Start the API and import `postman/Legit_Hair_Backend.postman_collection.json` plus `postman/Local.postman_environment.json`.
 4. Run the B05 seeded customer/basket/quote requests needed to populate `quoteId`, then run requests whose names start with `B06` in order. The collection stores `orderId`, the idempotency key, guest basket/quote/order IDs and the guest tracking credential, and asserts positive and negative responses.
 
-The collection parsed but was not manually executed. No owner-reported run or exported run artifact exists yet.
+On 2026-10-26, the owner reported that the B06 Postman workflow passed and explicitly accepted B06. No exported Collection Runner artifact accompanied the report, so the manual result remains owner-reported evidence. See `evidence/B06/owner-postman-report.txt` and `evidence/B06/owner-acceptance.txt`.
 
 ## Open gates and limitations
 
 - Owner approval is required for commission basis/rate, inventory reservation lifetime, COD eligibility and collection reconciliation. Production order creation must remain fail-closed until those values are approved and configured.
 - Production MySQL migration, locking, deadlock behavior and query-plan verification remain open; local evidence is MariaDB 10.4.32 only.
 - A deployment scheduler/worker must invoke `orders:release-expired`; only a local one-shot smoke check was run.
-- Manual Postman execution and an exported run artifact remain open.
+- No exported Postman Collection Runner artifact was supplied; the successful manual run is owner-reported.
 - B07 must consult current official Paystack documentation and obtain test credentials before provider acceptance. B06 made no provider calls and never treats a browser callback as payment proof.
 - Earlier Dojah/seller approval, production image storage, real pickup/courier and related production gates remain open. Synthetic approved-seller fixtures remain restricted to `_test` databases.
+- B06 is accepted. B07 remains NOT_STARTED and requires a separate instruction before implementation begins.

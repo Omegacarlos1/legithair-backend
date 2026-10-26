@@ -1,0 +1,9 @@
+Date: 2026-10-26 (Africa/Lagos)
+Milestone: B06 orders and inventory reservations
+Evidence: OWNER-REPORTED PASS
+
+The owner stated: "B06 Postman passed and I accept B06"
+
+The documented manual workflow covered authenticated Paystack-order creation without a provider call, idempotent replay, changed-payload rejection, authenticated order retrieval, missing-credential rejection, guest basket and quote creation, controlled synthetic COD order creation, incorrect guest tracking credential rejection, and successful guest tracking.
+
+Evidence boundary: no exported Postman Collection Runner result or screenshot accompanied the report. This records the owner's manual result and does not independently reproduce it. Production MySQL, Paystack provider acceptance, deployment scheduling, and the unresolved commission, reservation-duration, and COD policies remain open.
