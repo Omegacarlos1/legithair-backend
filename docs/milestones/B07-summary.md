@@ -1,6 +1,6 @@
 # B07 Paystack payments and paid receipts summary
 
-Status: READY_FOR_REVIEW on 2026-10-26 after local verification. B06 acceptance and its evidence were confirmed before implementation. B07 is not owner-accepted, and Paystack test-mode/provider acceptance remains open because no test credentials are configured.
+Status: ACCEPTED by explicit owner instruction on 2026-10-27 after local verification. B06 acceptance and its evidence were confirmed before implementation. Paystack test-mode/provider acceptance and owner Postman execution remain open; this acceptance does not claim those checks passed or authorise live payment activity.
 
 ## Scope completed
 

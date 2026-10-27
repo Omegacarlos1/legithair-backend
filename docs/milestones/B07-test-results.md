@@ -1,8 +1,8 @@
 # B07 test results
 
-Date: 2026-10-26 (Africa/Lagos)
+Date: 2026-10-26 (Africa/Lagos); owner acceptance recorded 2026-10-27.
 
-Verification outcome: all required local checks passed. Milestone tracker state: READY_FOR_REVIEW. No owner acceptance is claimed.
+Verification outcome: all required local checks passed. Milestone tracker state: ACCEPTED by explicit owner instruction on 2026-10-27. Acceptance does not convert skipped provider, Postman or production checks into passes.
 
 ## Executed checks
 
@@ -22,6 +22,7 @@ Verification outcome: all required local checks passed. Milestone tracker state:
 | OpenAPI YAML parse | PASS |
 | Paystack test-mode provider acceptance | SKIPPED, credentials not configured |
 | Production MySQL | SKIPPED, unavailable; local server is MariaDB 10.4.32 |
+| Owner Postman execution | SKIPPED, no owner run was reported before acceptance |
 
 Totals across executed Mocha assertions: 72 passing, 0 failing, 0 skipped. Static/build checks also passed.
 
