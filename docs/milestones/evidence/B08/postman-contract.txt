@@ -1,0 +1,26 @@
+B08 Postman and API contract evidence
+Date: 2026-10-27 (Africa/Lagos)
+
+Automated contract checks:
+- Legit_Hair_Backend.postman_collection.json JSON parse: PASS
+- Local.postman_environment.json JSON parse: PASS
+- docs/api/openapi.yaml YAML parse through installed js-yaml: PASS
+
+The B08 requests and assertions cover:
+- invalid seller delivery jump rejection;
+- seller-isolated processing and shipping for each portion of the B06 multi-seller order;
+- admin delivery completion and customer fulfilment/estimate read;
+- item-level return creation, idempotent replay, and cross-customer concealment;
+- admin Paystack test-mode refund approval and delayed refund reconciliation;
+- forged refund webhook rejection;
+- COD processing, shipment, delivery, exact collection recording, separate confirmation, and guest visibility of earnings eligibility.
+
+Usage:
+1. Use only NODE_ENV=test with DATABASE_NAME ending `_test`.
+2. Configure synthetic B06 order values, COD_ENABLED=true, RETURN_WINDOW_DAYS=14, and REFUND_DELIVERY_MODE=full_order for the disposable environment.
+3. Run migrations and `npm run seed:test`, import both Postman files, and select the Local environment.
+4. Run B05 login/basket/quote, B06 Paystack and guest-COD order requests, and B07 initialization.
+5. With an owner-supplied `sk_test_...` backend key only, complete the hosted test checkout and run B07 verify/receipt before the B08 requests in order.
+6. Never put the Paystack secret in Postman. A positive signed webhook must be delivered by Paystack to public HTTPS; the collection includes only a forged-signature negative request.
+
+Manual owner Postman execution: NOT RUN. No Collection Runner export or owner result exists. This file records contract and parse evidence only.

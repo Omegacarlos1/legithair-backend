@@ -1,0 +1,17 @@
+B08 Paystack refund provider acceptance evidence
+Date: 2026-10-27 (Africa/Lagos)
+
+Configuration probe:
+{"paystackConfigured":false,"mode":"none","refundTransactionConfigured":false,"refundAmountConfigured":false}
+
+Test-mode refund acceptance: SKIPPED - no PAYSTACK_SECRET_KEY, completed disposable test transaction reference, or refund acceptance amount is configured.
+Live refund acceptance: NOT ATTEMPTED - live keys and real money movement are not authorised.
+
+The repository provides `npm run refunds:verify-provider`. It refuses keys that do not start with `sk_test_`, requires PAYSTACK_REFUND_ACCEPTANCE_TRANSACTION and a positive PAYSTACK_REFUND_ACCEPTANCE_AMOUNT_MINOR, creates an explicit test-mode refund, fetches the same provider refund ID, and prints only non-secret status metadata.
+
+The refusal path was executed through the host shim and returned: Refusing refund acceptance: PAYSTACK_SECRET_KEY must be a Paystack test secret.
+
+Current official documentation consulted on 2026-10-27:
+- Refund create, fetch, list, and retry contracts: https://paystack.com/docs/api/refund/
+- Refund status and webhook lifecycle: https://paystack.com/docs/payments/refunds/
+- Signed raw-body webhook events: https://paystack.com/docs/payments/webhooks/
