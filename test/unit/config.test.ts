@@ -42,4 +42,14 @@ describe('configuration', () => {
     const configured = loadConfig({ ...base, PAYSTACK_SECRET_KEY: 'sk_test_syntheticsecret000001', PAYSTACK_TIMEOUT_MS: '1500' });
     assert.equal(configured.PAYSTACK_TIMEOUT_MS, 1500);
   });
+
+  it('keeps return and delivery-refund policy fail-closed until explicitly configured', () => {
+    const base = { NODE_ENV: 'test', PORT: '3000', DATABASE_HOST: 'localhost', DATABASE_USER: 'test', DATABASE_PASSWORD: '', DATABASE_NAME: 'legit_hair_test' };
+    const disabled = loadConfig(base);
+    assert.equal(disabled.RETURN_WINDOW_DAYS, undefined);
+    assert.equal(disabled.REFUND_DELIVERY_MODE, undefined);
+    const configured = loadConfig({ ...base, RETURN_WINDOW_DAYS: '14', REFUND_DELIVERY_MODE: 'full_order' });
+    assert.equal(configured.RETURN_WINDOW_DAYS, 14);
+    assert.equal(configured.REFUND_DELIVERY_MODE, 'full_order');
+  });
 });
