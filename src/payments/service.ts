@@ -233,8 +233,8 @@ export class PaymentService {
         await connection.query("INSERT INTO order_status_events (order_id, from_status, to_status, reason, actor_type) VALUES (?, 'awaiting_payment', 'reservation_expired', 'late_payment_after_reservation_expiry', 'provider')", [order.id]);
       }
       await connection.query("UPDATE payments SET status = 'late_success', provider_transaction_id = ?, paid_at = ?, verified_at = NOW(3), last_error = NULL WHERE id = ?", [result.providerTransactionId, result.paidAt, payment.id]);
-      await connection.query(`INSERT IGNORE INTO payment_ledger_entries (id, order_id, payment_id, entry_type, direction, amount_minor, currency, description)
-        VALUES (?, ?, ?, 'late_payment_received', 'credit', ?, ?, 'Payment received after inventory reservation was no longer valid')`, [randomUUID(), order.id, payment.id, payment.expected_amount_minor, payment.currency]);
+      await connection.query(`INSERT IGNORE INTO payment_ledger_entries (id, order_id, payment_id, logical_key, entry_type, direction, amount_minor, currency, description)
+        VALUES (?, ?, ?, ?, 'late_payment_received', 'credit', ?, ?, 'Payment received after inventory reservation was no longer valid')`, [randomUUID(), order.id, payment.id, `${payment.id}:late_payment_received`, payment.expected_amount_minor, payment.currency]);
       await this.insertReview(connection, payment, 'late_payment', { orderStatus: order.status, reservationExpiresAt: order.reservation_expires_at.toISOString(), resolution: 'controlled_refund_or_manual_review' });
       return 'late_payment';
     }
@@ -245,8 +245,8 @@ export class PaymentService {
     await connection.query<ProductIdRow[]>('SELECT p.id FROM products p JOIN order_items oi ON oi.product_id = p.id WHERE oi.order_id = ? ORDER BY p.id FOR UPDATE', [order.id]);
     await connection.query(`UPDATE products p JOIN order_items oi ON oi.product_id = p.id
       SET p.paid_units_sold = p.paid_units_sold + oi.quantity WHERE oi.order_id = ?`, [order.id]);
-    await connection.query(`INSERT INTO payment_ledger_entries (id, order_id, payment_id, entry_type, direction, amount_minor, currency, description)
-      VALUES (?, ?, ?, 'payment_received', 'credit', ?, ?, 'Verified Paystack customer payment')`, [randomUUID(), order.id, payment.id, payment.expected_amount_minor, payment.currency]);
+    await connection.query(`INSERT INTO payment_ledger_entries (id, order_id, payment_id, logical_key, entry_type, direction, amount_minor, currency, description)
+      VALUES (?, ?, ?, ?, 'payment_received', 'credit', ?, ?, 'Verified Paystack customer payment')`, [randomUUID(), order.id, payment.id, `${payment.id}:payment_received`, payment.expected_amount_minor, payment.currency]);
     const [items] = await connection.query<ItemRow[]>('SELECT product_id, product_name, quantity, unit_price_minor, line_total_minor FROM order_items WHERE order_id = ? ORDER BY id', [order.id]);
     const receiptId = randomUUID();
     const receiptNumber = `LH-${order.id.replaceAll('-', '').slice(0, 24).toUpperCase()}`;

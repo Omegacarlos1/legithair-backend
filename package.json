@@ -23,6 +23,8 @@
     "orders:release-expired": "tsx scripts/release-expired-reservations.ts",
     "payments:reconcile": "tsx scripts/reconcile-payments.ts",
     "payments:verify-provider": "tsx scripts/verify-paystack.ts",
+    "refunds:verify-provider": "tsx scripts/verify-paystack-refund.ts",
+    "refunds:reconcile": "tsx scripts/reconcile-refunds.ts",
     "email:work-once": "tsx scripts/process-email-once.ts",
     "email:worker": "tsx scripts/process-email-worker.ts",
     "email:verify-provider": "tsx scripts/verify-gmail.ts"

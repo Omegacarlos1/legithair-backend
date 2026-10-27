@@ -50,7 +50,7 @@ export async function seedTestFixtures(): Promise<void> {
       ON DUPLICATE KEY UPDATE is_active = TRUE, is_synthetic = TRUE`, [fixtures[1].id]);
     await pool.query(`INSERT INTO indicative_exchange_rates (currency, ngn_minor_per_currency_minor, updated_by)
       VALUES ('USD', 1500, ?) ON DUPLICATE KEY UPDATE ngn_minor_per_currency_minor = 1500, updated_by = VALUES(updated_by), updated_at = NOW(3)`, [fixtures[1].id]);
-    process.stdout.write(`Seeded ${fixtures.length} synthetic users, ${syntheticSellers.length} synthetic approved sellers, and ${basketProducts.length} B05-B07 checkout products. Login password: FixturePass123!\n`);
+    process.stdout.write(`Seeded ${fixtures.length} synthetic users, ${syntheticSellers.length} synthetic approved sellers, and ${basketProducts.length} B05-B08 checkout products. Login password: FixturePass123!\n`);
   } finally {
     await pool.end();
   }
