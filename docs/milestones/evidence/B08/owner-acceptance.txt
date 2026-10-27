@@ -1,0 +1,30 @@
+Date: 2026-10-27 (Africa/Lagos)
+Milestone: B08 fulfilment, returns, refunds, and COD collection
+Decision: ACCEPTED by explicit owner instruction.
+
+The owner stated: "accept m08"
+
+The repository milestone identifier is B08; this acceptance records the owner's M08 wording as acceptance of B08, the current fulfilment, returns, refunds, and COD collection milestone.
+
+The following gates remain open:
+- owner execution of the documented B08 Postman workflow
+- owner-approved return window and delivery-fee refund treatment
+- owner-approved earnings hold duration and treatment of refunds after seller payout
+- owner-approved production COD eligibility and collection reconciliation policy
+- Paystack test-mode refund create/fetch and dashboard webhook delivery evidence
+- production MySQL migration, locking, and compatibility verification
+- production DNS, TLS, webhook reachability, email provider/sender, pickup address, and courier arrangements
+- live-key, live-payment, live-refund, and real-money authorization
+- B09 classification of seller refund adjustments against held, available, or already-paid earnings
+- earlier Dojah, consent, real seller-approval, and production image-storage gates
+
+Evidence boundary: no owner Postman pass, exported runner artifact, Paystack refund test-mode result, dashboard webhook evidence, production MySQL result, or approved production policy values accompanied the acceptance instruction. Those checks remain SKIPPED, NOT RUN, or unresolved and are not implied by acceptance. No live key or live money movement is authorised.
+
+Acceptance relies on the recorded 2026-10-27 local verification:
+- `npm run lint`: PASS, exit 0
+- `npm run typecheck`: PASS, exit 0
+- `npm run build`: PASS, exit 0
+- unit and Supertest API suites through the documented host shim: PASS, 34 passing, 0 failing, 0 skipped
+- MariaDB integration suite on guarded `legit_hair_app_test`: PASS, 51 passing, 0 failing, 0 skipped
+- Postman collection/environment JSON and OpenAPI YAML parse: PASS
+- normal `npm test` and `npm run test:integration` wrappers: HOST BLOCKED before discovery by the documented Windows `uv_os_get_passwd` ENOMEM issue

@@ -1,6 +1,6 @@
 # B08 fulfilment, returns, refunds, and COD collection summary
 
-Status: READY_FOR_REVIEW on 2026-10-27 after independent local verification. B07 acceptance and evidence were confirmed before implementation. B08 is not owner-accepted; owner policy, Postman, provider test-mode, production MySQL, and live-authorisation gates remain open.
+Status: ACCEPTED by explicit owner instruction on 2026-10-27 after independent local verification. B07 acceptance and evidence were confirmed before implementation. Owner policy, Postman, provider test-mode, production MySQL, and live-authorisation gates remain open; acceptance does not claim those checks passed or authorise live refunds.
 
 ## Scope completed
 

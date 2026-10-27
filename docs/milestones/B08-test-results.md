@@ -2,7 +2,7 @@
 
 Date: 2026-10-27 (Africa/Lagos)
 
-Verification outcome: all required independent local checks passed. Milestone tracker state: READY_FOR_REVIEW. No owner acceptance is claimed.
+Verification outcome: all required independent local checks passed. Milestone tracker state: ACCEPTED by explicit owner instruction on 2026-10-27. Acceptance does not convert skipped provider, Postman, policy or production checks into passes.
 
 | Check | Actual result |
 |---|---|
