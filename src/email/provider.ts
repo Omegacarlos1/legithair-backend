@@ -1,7 +1,9 @@
 import nodemailer, { type SendMailOptions } from 'nodemailer';
 import type { AppConfig } from '../config.js';
 
-export interface EmailMessage { to: string; template: 'verification' | 'password_reset'; token: string }
+export type EmailMessage =
+  | { to: string; template: 'verification' | 'password_reset'; token: string }
+  | { to: string; template: 'paid_receipt'; orderId: string; receiptNumber: string; amountMinor: number; currency: string };
 export interface EmailProvider { send(message: EmailMessage): Promise<void> }
 
 interface MailTransport {
@@ -65,6 +67,16 @@ export function createGmailEmailProvider(config: AppConfig): GmailEmailProvider 
 }
 
 function createEmailContent(message: EmailMessage): { subject: string; text: string; html: string } {
+  if (message.template === 'paid_receipt') {
+    const receiptNumber = escapeHtml(message.receiptNumber);
+    const orderId = escapeHtml(message.orderId);
+    const amount = `${message.currency} ${(message.amountMinor / 100).toFixed(2)}`;
+    return {
+      subject: `Your Legit Hair receipt ${message.receiptNumber}`,
+      text: `Your payment is confirmed.\n\nReceipt: ${message.receiptNumber}\nOrder: ${message.orderId}\nAmount: ${amount}\n\nDownload the authoritative receipt from GET /api/v1/orders/${message.orderId}/receipt.`,
+      html: `<h1>Payment confirmed</h1><p>Receipt: <strong>${receiptNumber}</strong></p><p>Order: <code>${orderId}</code></p><p>Amount: ${escapeHtml(amount)}</p><p>Download the authoritative receipt from your order history.</p>`
+    };
+  }
   const token = escapeHtml(message.token);
   if (message.template === 'verification') {
     return {

@@ -1,0 +1,30 @@
+Date: 2026-10-27 (Africa/Lagos)
+Milestone: B07 Paystack payments and paid receipts
+Decision: ACCEPTED by explicit owner instruction.
+
+The owner stated: "accept m07"
+
+The repository milestone identifier is B07; this acceptance records the owner's M07 wording as acceptance of B07, the current Paystack payments and paid receipts milestone.
+
+The following gates remain open:
+- owner execution of the documented B07 Postman workflow
+- Paystack test-mode initialization and verification using an owner-supplied sk_test_ credential
+- Paystack dashboard delivery of a correctly signed webhook to a public HTTPS endpoint
+- production MySQL migration, locking and compatibility verification
+- production DNS, TLS and webhook reachability
+- live-key, live-payment and refund authorization
+- production email provider/sender
+- B06 commission, reservation-duration and COD policy approval; production order creation remains fail-closed
+- B08 controlled refund execution and resolution of late-payment review cases
+- earlier Dojah, consent, real seller-approval, image-storage, pickup and courier gates
+
+Evidence boundary: no owner Postman pass, exported runner artifact, Paystack test-mode provider result, dashboard webhook evidence or production MySQL result accompanied the acceptance instruction. Those checks remain SKIPPED or NOT RUN and are not implied by acceptance. No live key or live money movement is authorised.
+
+Acceptance-record verification performed on 2026-10-27:
+- `npm run lint`: PASS, exit 0
+- `npm run typecheck`: PASS, exit 0
+- `npm run build`: PASS, exit 0
+- unit and Supertest API suites through the documented host shim: PASS, 28 passing, 0 failing, 0 skipped
+- MariaDB integration suite on guarded `legit_hair_app_test`: PASS, 44 passing, 0 failing, 0 skipped
+- Postman collection and environment JSON parse: PASS, exit 0
+- normal `npm run test:*` wrappers: HOST BLOCKED before discovery by the documented Windows `uv_os_get_passwd` ENOMEM issue

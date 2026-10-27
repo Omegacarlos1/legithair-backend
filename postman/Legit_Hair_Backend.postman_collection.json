@@ -263,6 +263,36 @@
       "name": "B06 Track guest order - positive",
       "request": { "method": "GET", "header": [{ "key": "X-Order-Tracking-Token", "value": "{{orderTrackingToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{b06GuestOrderId}}" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('guest order returned', () => pm.expect(pm.response.json().data.order.id).to.eql(pm.environment.get('b06GuestOrderId')));" ] } }]
+    },
+    {
+      "name": "B07 Initialize Paystack payment - positive test mode",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\"}" }, "url": "{{baseUrl}}/api/v1/payments/initialize" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201 or safe replay 200', () => pm.expect([200, 201]).to.include(pm.response.code));", "const b=pm.response.json(); pm.environment.set('paymentId', b.data.payment.id); pm.environment.set('paymentReference', b.data.payment.reference); pm.environment.set('paystackCheckoutUrl', b.data.payment.authorizationUrl);", "pm.test('server controlled NGN reference', () => { pm.expect(b.data.payment.currency).to.eql('NGN'); pm.expect(b.data.payment.reference).to.match(/^LH-/); });" ] } }]
+    },
+    {
+      "name": "B07 Initialize without credential - negative",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\"}" }, "url": "{{baseUrl}}/api/v1/payments/initialize" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 401', () => pm.response.to.have.status(401));", "pm.test('order access required', () => pm.expect(pm.response.json().error.code).to.eql('ORDER_ACCESS_REQUIRED'));" ] } }]
+    },
+    {
+      "name": "B07 Verify callback tampering - negative",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\",\"reference\":\"LH-tampered-reference\"}" }, "url": "{{baseUrl}}/api/v1/payments/verify" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 409', () => pm.response.to.have.status(409));", "pm.test('tampering rejected locally', () => pm.expect(pm.response.json().error.code).to.eql('PAYMENT_REFERENCE_MISMATCH'));" ] } }]
+    },
+    {
+      "name": "B07 Verify persisted Paystack reference",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderId\":\"{{orderId}}\",\"reference\":\"{{paymentReference}}\"}" }, "url": "{{baseUrl}}/api/v1/payments/verify" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('provider outcome explicit', () => pm.expect(['pending', 'succeeded', 'already_succeeded']).to.include(pm.response.json().data.outcome));" ] } }]
+    },
+    {
+      "name": "B07 Forged Paystack webhook - negative",
+      "request": { "method": "POST", "header": [{ "key": "X-Paystack-Signature", "value": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"event\":\"charge.success\",\"data\":{}}" }, "url": "{{baseUrl}}/api/v1/payments/webhooks/paystack" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 401', () => pm.response.to.have.status(401));", "pm.test('forged signature rejected', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_WEBHOOK_SIGNATURE'));" ] } }]
+    },
+    {
+      "name": "B07 Download paid receipt - after completed test payment",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/receipt" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200 after confirmed payment', () => pm.response.to.have.status(200));", "pm.test('attachment and exact order', () => { pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'); pm.expect(pm.response.json().data.receipt.orderId).to.eql(pm.environment.get('orderId')); });" ] } }]
     }
   ]
 }

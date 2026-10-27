@@ -1,0 +1,15 @@
+B07 Paystack provider acceptance evidence
+Date: 2026-10-26 (Africa/Lagos)
+
+Configuration probe result:
+{"paystackConfigured":false,"mode":"none"}
+
+Paystack test-mode acceptance: SKIPPED - no PAYSTACK_SECRET_KEY or provider test account is configured in the local environment.
+Paystack live acceptance: NOT ATTEMPTED - live money movement is not authorised.
+
+The repository provides npm run payments:verify-provider. It refuses keys that do not begin with sk_test_, requires PAYSTACK_ACCEPTANCE_EMAIL, initializes NGN 100.00, verifies the same reference and does not complete payment. Run it only after the owner supplies a Paystack test account.
+
+Current official documentation consulted on 2026-10-26:
+- Transaction initialize and verify: https://paystack.com/docs/api/transaction/
+- Raw-body x-paystack-signature HMAC SHA-512 webhooks: https://paystack.com/docs/payments/webhooks/
+- Backend initialization and amount verification: https://paystack.com/docs/payments/accept-payments/

@@ -39,7 +39,11 @@ const schema = z.object({
   ORDER_COMMISSION_BASIS: z.preprocess((value) => value === '' ? undefined : value, z.enum(['line_item_gross']).optional()),
   ORDER_COMMISSION_RATE_BPS: optionalNumber(0, 10000),
   COD_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
-  ORDER_GUEST_TOKEN_SECRET: z.preprocess((value) => value === '' ? undefined : value, z.string().min(32).optional())
+  ORDER_GUEST_TOKEN_SECRET: z.preprocess((value) => value === '' ? undefined : value, z.string().min(32).optional()),
+  PAYSTACK_SECRET_KEY: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^sk_(test|live)_[A-Za-z0-9]+$/).min(20).optional()),
+  PAYSTACK_BASE_URL: z.url().default('https://api.paystack.co'),
+  PAYSTACK_CALLBACK_URL: z.preprocess((value) => value === '' ? undefined : value, z.url().optional()),
+  PAYSTACK_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000)
 }).superRefine((config, context) => {
   if (config.EMAIL_PROVIDER !== 'gmail') return;
   if (!config.GMAIL_USER) context.addIssue({ code: 'custom', path: ['GMAIL_USER'], message: 'GMAIL_USER is required for Gmail delivery' });
