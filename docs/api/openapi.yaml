@@ -331,6 +331,80 @@ paths:
       summary: Download the immutable JSON receipt for a timely verified payment
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: JSON receipt with Content-Disposition attachment }, '401': { description: Access credential required }, '404': { description: Receipt absent or inaccessible } }
+  /api/v1/seller/orders/{orderId}/status:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Advance only the authenticated seller's portion through processing and dispatch or pickup readiness
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Seller portion advanced and aggregate progress returned }, '401': { description: Authentication required }, '403': { description: Seller role required }, '404': { description: No portion owned by this seller }, '409': { description: Invalid transition or delivery-method mismatch } }
+  /api/v1/admin/orders/{orderId}/suborders/{suborderId}/status:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Record authorised delivery, pickup, or eligible COD cancellation progress
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: Invalid jump, delivery-method mismatch, or paid cancellation requiring refund } }
+  /api/v1/orders/{orderId}/fulfilment:
+    get:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Read owned seller-level progress, snapshotted Lagos estimate or pickup details, and COD collection eligibility
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Fulfilment progress }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
+  /api/v1/orders/{orderId}/cancel:
+    post:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Cancel an owned unprocessed unpaid or COD order and release stock once
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [reason], additionalProperties: false, properties: { reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Order cancelled or idempotently returned }, '404': { description: Order absent or inaccessible }, '409': { description: Fulfilment started or paid order requires return workflow } }
+  /api/v1/orders/{orderId}/returns:
+    post:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: Submit an idempotent item-level return request within the configured window
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReturn' } } } }
+      responses: { '201': { description: Return request created }, '200': { description: Identical idempotent replay }, '404': { description: Order or item absent or inaccessible }, '409': { description: Invalid state, closed window, quantity exceeded, or changed replay }, '503': { description: Return window not configured } }
+    get:
+      security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
+      summary: List return and refund outcomes for the owned order
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Return requests and refund states }, '404': { description: Order absent or inaccessible } }
+  /api/v1/admin/returns/{returnRequestId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Reject a return or approve its exact bounded Paystack refund
+      parameters: [{ name: returnRequestId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewReturn' } } } }
+      responses: { '200': { description: Review recorded and any provider refund initiated once }, '403': { description: Admin role required }, '409': { description: Already reviewed, COD policy unresolved, or provider rejection }, '503': { description: Refund policy/provider unconfigured or temporarily unavailable } }
+  /api/v1/admin/refunds/{refundId}/reconcile:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Fetch the original provider refund and reconcile a delayed result
+      parameters: [{ name: refundId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '200': { description: Current refund state reconciled }, '409': { description: No provider identifier; manual review required }, '503': { description: Provider unavailable } }
+  /api/v1/admin/payment-review-cases/{caseId}/refund:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Initiate one controlled full refund for a recorded late payment
+      parameters: [{ name: caseId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '202': { description: Late-payment refund persisted and initiated or safely replayed }, '404': { description: Late-payment case not found }, '503': { description: Provider unconfigured or unavailable } }
+  /api/v1/admin/orders/{orderId}/cod-collection:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Record exact cash collection for a delivered COD order without making earnings eligible
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecordCodCollection' } } } }
+      responses: { '201': { description: Collection recorded }, '200': { description: Identical replay }, '409': { description: Not delivered, amount mismatch, or conflicting record } }
+  /api/v1/admin/cod-collections/{collectionId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Confirm or reject recorded cash collection; only confirmation marks future earnings eligible
+      parameters: [{ name: collectionId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action, note], additionalProperties: false, properties: { action: { type: string, enum: [confirm, reject] }, note: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Collection reconciled }, '404': { description: Collection not found }, '409': { description: Collection already reconciled } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -351,6 +425,29 @@ components:
       properties:
         orderId: { type: string, format: uuid }
         reference: { type: string, minLength: 3, maxLength: 100, pattern: '^[A-Za-z0-9.=-]+$' }
+    CreateReturn:
+      type: object
+      required: [items, reason]
+      additionalProperties: false
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items: { type: object, required: [orderItemId, quantity], additionalProperties: false, properties: { orderItemId: { type: string, format: uuid }, quantity: { type: integer, minimum: 1, maximum: 20 } } }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    ReviewReturn:
+      oneOf:
+        - { type: object, required: [action, adminNote, stockDisposition], additionalProperties: false, properties: { action: { type: string, enum: [approve] }, adminNote: { type: string, minLength: 3, maxLength: 500 }, stockDisposition: { type: string, enum: [restock, no_restock] } } }
+        - { type: object, required: [action, adminNote], additionalProperties: false, properties: { action: { type: string, enum: [reject] }, adminNote: { type: string, minLength: 3, maxLength: 500 } } }
+    RecordCodCollection:
+      type: object
+      required: [amountMinor, collectionReference, collectedAt]
+      additionalProperties: false
+      properties:
+        amountMinor: { type: integer, minimum: 0 }
+        collectionReference: { type: string, minLength: 3, maxLength: 190, pattern: '^[A-Za-z0-9._:/-]+$' }
+        collectedAt: { type: string, format: date-time }
     Register:
       type: object
       required: [email, password, displayName]

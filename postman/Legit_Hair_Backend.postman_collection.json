@@ -212,7 +212,7 @@
     {
       "name": "B06 Create Paystack order - positive",
       "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "{{orderIdempotencyKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"quoteId\":\"{{quoteId}}\",\"paymentMethod\":\"paystack\"}" }, "url": "{{baseUrl}}/api/v1/orders" },
-      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.environment.set('orderIdempotencyKey', 'postman-order-' + pm.variables.replaceIn('{{$randomUUID}}'));" ] } }, { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('orderId', b.data.order.id);", "pm.test('awaiting payment with active reservations', () => { pm.expect(b.data.order.status).to.eql('awaiting_payment'); pm.expect(b.data.order.reservations.every(r => r.status === 'active')).to.eql(true); });", "pm.test('immutable commission snapshots', () => pm.expect(b.data.order.suborders.every(s => s.items.every(i => i.commission.rateBps === b.data.order.commissionPolicy.rateBps))).to.eql(true));" ] } }]
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.environment.set('orderIdempotencyKey', 'postman-order-' + pm.variables.replaceIn('{{$randomUUID}}'));" ] } }, { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('orderId', b.data.order.id); pm.environment.set('b08OrderTotalMinor', String(b.data.order.totals.grandTotalMinor));", "const one=b.data.order.suborders.find(s => s.sellerId === pm.environment.get('b08SellerOneId')); const two=b.data.order.suborders.find(s => s.sellerId === pm.environment.get('b08SellerTwoId')); pm.environment.set('b08SellerOneSuborderId', one.id); pm.environment.set('b08SellerTwoSuborderId', two.id); pm.environment.set('b08ReturnOrderItemId', one.items[0].id);", "pm.test('awaiting payment with active reservations', () => { pm.expect(b.data.order.status).to.eql('awaiting_payment'); pm.expect(b.data.order.reservations.every(r => r.status === 'active')).to.eql(true); });", "pm.test('immutable commission snapshots', () => pm.expect(b.data.order.suborders.every(s => s.items.every(i => i.commission.rateBps === b.data.order.commissionPolicy.rateBps))).to.eql(true));" ] } }]
     },
     {
       "name": "B06 Create Paystack order - idempotent replay",
@@ -252,7 +252,7 @@
     {
       "name": "B06 Create guest COD order - controlled positive",
       "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{b06GuestBasketToken}}" }, { "key": "Idempotency-Key", "value": "postman-b06-guest-order-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"quoteId\":\"{{b06GuestQuoteId}}\",\"paymentMethod\":\"cod\"}" }, "url": "{{baseUrl}}/api/v1/orders" },
-      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b06GuestOrderId', b.data.order.id); pm.environment.set('orderTrackingToken', b.data.guestTrackingToken);", "pm.test('awaiting collection', () => pm.expect(b.data.order.status).to.eql('awaiting_collection'));", "pm.test('tracking credential issued', () => pm.expect(b.data.guestTrackingToken.length).to.be.above(31));" ] } }]
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b06GuestOrderId', b.data.order.id); pm.environment.set('orderTrackingToken', b.data.guestTrackingToken); pm.environment.set('b08CodSuborderId', b.data.order.suborders[0].id); pm.environment.set('b08CodTotalMinor', String(b.data.order.totals.grandTotalMinor));", "pm.test('awaiting collection', () => pm.expect(b.data.order.status).to.eql('awaiting_collection'));", "pm.test('tracking credential issued', () => pm.expect(b.data.guestTrackingToken.length).to.be.above(31));" ] } }]
     },
     {
       "name": "B06 Guest order with wrong tracking credential - negative",
@@ -293,6 +293,106 @@
       "name": "B07 Download paid receipt - after completed test payment",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/receipt" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200 after confirmed payment', () => pm.response.to.have.status(200));", "pm.test('attachment and exact order', () => { pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'); pm.expect(pm.response.json().data.receipt.orderId).to.eql(pm.environment.get('orderId')); });" ] } }]
+    },
+    {
+      "name": "B08 Seller delivery jump - negative",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{sellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"shipped\",\"reason\":\"Invalid jump test\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 409', () => pm.response.to.have.status(409));", "pm.test('jump rejected', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_FULFILMENT_TRANSITION'));" ] } }]
+    },
+    {
+      "name": "B08 First seller starts processing",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{sellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"processing\",\"reason\":\"Preparing synthetic order\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('only first seller advanced', () => { const s=pm.response.json().data.fulfilment.suborders; pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerOneSuborderId')).status).to.eql('processing'); pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerTwoSuborderId')).status).to.eql('pending'); });" ] } }]
+    },
+    {
+      "name": "B08 Other seller starts processing",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"processing\",\"reason\":\"Preparing second seller portion\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));" ] } }]
+    },
+    {
+      "name": "B08 First seller ships",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{sellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));" ] } }]
+    },
+    {
+      "name": "B08 Other seller ships",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('aggregate shipped', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('shipped'));" ] } }]
+    },
+    {
+      "name": "B08 Admin delivers first seller portion",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}" }, "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerOneSuborderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));" ] } }]
+    },
+    {
+      "name": "B08 Admin delivers other seller portion",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}" }, "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerTwoSuborderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('aggregate delivered', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('delivered'));" ] } }]
+    },
+    {
+      "name": "B08 Read customer fulfilment and estimate",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/fulfilment" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('delivered with Lagos snapshot', () => { const f=pm.response.json().data.fulfilment; pm.expect(f.status).to.eql('delivered'); pm.expect(f.destination.zone.estimate.minBusinessDays).to.be.a('number'); });" ] } }]
+    },
+    {
+      "name": "B08 Submit partial return - positive",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "postman-b08-return-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"items\":[{\"orderItemId\":\"{{b08ReturnOrderItemId}}\",\"quantity\":1}],\"reason\":\"Item differs from description\"}" }, "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/returns" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b08ReturnRequestId', b.data.returnRequest.id);", "pm.test('requested and bounded', () => { pm.expect(b.data.returnRequest.status).to.eql('requested'); pm.expect(b.data.returnRequest.items[0].quantity).to.eql(1); });" ] } }]
+    },
+    {
+      "name": "B08 Replay partial return - idempotent",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "postman-b08-return-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"items\":[{\"orderItemId\":\"{{b08ReturnOrderItemId}}\",\"quantity\":1}],\"reason\":\"Item differs from description\"}" }, "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/returns" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('same return and replay flag', () => { const b=pm.response.json(); pm.expect(b.data.returnRequest.id).to.eql(pm.environment.get('b08ReturnRequestId')); pm.expect(b.data.idempotentReplay).to.eql(true); });" ] } }]
+    },
+    {
+      "name": "B08 Cross-customer returns access - negative",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{orderId}}/returns" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 404', () => pm.response.to.have.status(404));", "pm.test('order hidden', () => pm.expect(pm.response.json().error.code).to.eql('ORDER_NOT_FOUND'));" ] } }]
+    },
+    {
+      "name": "B08 Admin approves Paystack test refund",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"action\":\"approve\",\"adminNote\":\"Synthetic item inspected and approved\",\"stockDisposition\":\"restock\"}" }, "url": "{{baseUrl}}/api/v1/admin/returns/{{b08ReturnRequestId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200 in Paystack test mode', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('b08RefundId', b.data.returnRequest.refund.id);", "pm.test('refund is explicit provider state', () => pm.expect(['pending','processing','processed']).to.include(b.data.returnRequest.refund.status));" ] } }]
+    },
+    {
+      "name": "B08 Reconcile delayed Paystack refund",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/admin/refunds/{{b08RefundId}}/reconcile" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('known refund lifecycle', () => pm.expect(['pending','processing','needs_attention','processed','failed']).to.include(pm.response.json().data.refund.status));" ] } }]
+    },
+    {
+      "name": "B08 Forged refund webhook - negative",
+      "request": { "method": "POST", "header": [{ "key": "X-Paystack-Signature", "value": "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"event\":\"refund.processed\",\"data\":{\"transaction_reference\":\"{{paymentReference}}\",\"amount\":\"100000\",\"currency\":\"NGN\",\"status\":\"processed\"}}" }, "url": "{{baseUrl}}/api/v1/payments/webhooks/paystack" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 401', () => pm.response.to.have.status(401));", "pm.test('forged signature rejected', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_WEBHOOK_SIGNATURE'));" ] } }]
+    },
+    {
+      "name": "B08 COD seller starts processing",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"processing\",\"reason\":\"Preparing COD order\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));" ] } }]
+    },
+    {
+      "name": "B08 COD seller ships",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"shipped\",\"reason\":\"COD order dispatched\"}" }, "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));" ] } }]
+    },
+    {
+      "name": "B08 Admin delivers COD order",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\"}" }, "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/suborders/{{b08CodSuborderId}}/status" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('delivered but cash not eligible', () => { const f=pm.response.json().data.fulfilment; pm.expect(f.status).to.eql('delivered'); pm.expect(f.codEarningsEligible).to.eql(false); });" ] } }]
+    },
+    {
+      "name": "B08 Record exact COD collection",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Idempotency-Key", "value": "postman-b08-cod-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"amountMinor\":{{b08CodTotalMinor}},\"collectionReference\":\"COD-POSTMAN-B08-001\",\"collectedAt\":\"2026-10-27T10:00:00.000Z\"}" }, "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/cod-collection" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201 or replay 200', () => pm.expect([200,201]).to.include(pm.response.code));", "const b=pm.response.json(); pm.environment.set('b08CodCollectionId', b.data.collection.id);", "pm.test('recorded is not earnings eligible', () => pm.expect(b.data.collection.earningsEligible).to.eql(false));" ] } }]
+    },
+    {
+      "name": "B08 Confirm COD collection",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"action\":\"confirm\",\"note\":\"Cash matched synthetic dispatch record\"}" }, "url": "{{baseUrl}}/api/v1/admin/cod-collections/{{b08CodCollectionId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('confirmed is earnings eligible', () => pm.expect(pm.response.json().data.collection.earningsEligible).to.eql(true));" ] } }]
+    },
+    {
+      "name": "B08 Guest reads reconciled COD fulfilment",
+      "request": { "method": "GET", "header": [{ "key": "X-Order-Tracking-Token", "value": "{{orderTrackingToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{b06GuestOrderId}}/fulfilment" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('confirmed COD eligibility visible', () => pm.expect(pm.response.json().data.fulfilment.codEarningsEligible).to.eql(true));" ] } }]
     }
   ]
 }

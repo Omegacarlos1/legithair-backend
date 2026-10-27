@@ -1,0 +1,27 @@
+B08 local database and fixture evidence
+Date: 2026-10-27 (Africa/Lagos)
+
+Local development migration:
+- Target: legit_hair_app
+- Invocation: exported migrate entry point through the established process-local os.userInfo shim
+- Result: PASS; migration 009 applied
+
+Disposable integration database:
+- NODE_ENV=test
+- DATABASE_NAME=legit_hair_app_test
+- Server: 10.4.32-MariaDB
+- Applied migrations: 001_foundation.sql through 009_fulfilment_returns_refunds.sql
+- Full integration result: PASS, 51 passing
+- Migration test repeatedly rolled all migrations down and up and verified the B01-B08 table set
+
+Guarded seed:
+- Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+- Result: PASS
+- Output: Seeded 4 synthetic users, 2 synthetic approved sellers, and 2 B05-B08 checkout products. Login password: FixturePass123!
+
+Seed safety:
+- Environment: development / legit_hair_app
+- Result: PASS (expected refusal, exit 1)
+- Output: Refusing to seed: NODE_ENV must be test and DATABASE_NAME must end with _test
+
+Evidence boundary: this is MariaDB evidence, not production MySQL compatibility. B06 order policy and B08 return window/delivery-refund policy values in tests are synthetic. No live identity data, provider refund, COD cash, seller earnings, or money movement was used.

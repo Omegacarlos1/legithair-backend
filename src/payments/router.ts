@@ -11,6 +11,7 @@ import { PaymentService, type PaystackWebhookEvent } from './service.js';
 const credential = z.string().min(32).max(200).regex(/^[A-Za-z0-9_-]+$/);
 const initializeSchema = z.object({ orderId: z.uuid(), email: z.email().max(320).optional() }).strict();
 const verifySchema = z.object({ orderId: z.uuid(), reference: z.string().min(3).max(100).regex(/^[A-Za-z0-9.=-]+$/) }).strict();
+const webhookEnvelopeSchema = z.object({ event: z.string().min(1).max(100), data: z.record(z.string(), z.unknown()) }).passthrough();
 const webhookSchema = z.object({
   event: z.string().min(1).max(100),
   data: z.object({
@@ -26,7 +27,7 @@ const webhookSchema = z.object({
 }).passthrough();
 const asyncRoute = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(next); };
 
-export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webhookSecret?: string, callbackUrl?: string): Router {
+export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webhookSecret?: string, callbackUrl?: string, refundWebhookHandler?: (event: { event: string; data: Record<string, unknown> }, rawBody: Buffer) => Promise<object>): Router {
   const router = Router();
   const auth = new AuthService(pool);
   const payments = new PaymentService(pool, provider, callbackUrl ? { callbackUrl } : {});
@@ -61,6 +62,13 @@ export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webho
   router.post('/payments/webhooks/paystack', asyncRoute(async (req, res) => {
     if (!verifyPaystackSignature(req.rawBody ?? Buffer.alloc(0), req.header('x-paystack-signature'), webhookSecret)) {
       throw new AppError(401, 'INVALID_WEBHOOK_SIGNATURE', 'Webhook signature is invalid');
+    }
+    const envelope = webhookEnvelopeSchema.parse(req.body);
+    if (envelope.event.startsWith('refund.')) {
+      if (!refundWebhookHandler) throw new AppError(503, 'REFUND_WEBHOOK_NOT_CONFIGURED', 'Refund webhook handling is not configured');
+      const result = await refundWebhookHandler(envelope, req.rawBody!);
+      res.json({ success: true, data: result, meta: { requestId: req.id } });
+      return;
     }
     const parsed = webhookSchema.parse(req.body);
     const paidValue = parsed.data.paid_at ?? parsed.data.paidAt;

@@ -77,3 +77,11 @@ Configure `PAYSTACK_SECRET_KEY` only on the backend. `POST /api/v1/payments/init
 Valid success atomically consumes the reservation, marks the order paid, records one ledger entry, creates one downloadable JSON receipt, and queues one receipt email. Late success opens a controlled review case and does not reacquire stock or issue a paid-order receipt. See `docs/api/payments.md` and ADR 0008.
 
 Local setup may leave `PAYSTACK_SECRET_KEY` blank; payment routes then fail closed with `503 PAYMENT_PROVIDER_NOT_CONFIGURED`. For explicit provider testing, add a Paystack `sk_test_...` key and `PAYSTACK_ACCEPTANCE_EMAIL` only to the uncommitted environment and run `npm run payments:verify-provider`. This creates and verifies a test transaction but does not complete a payment. Live keys, public webhook reachability, and production settlement remain separate acceptance gates.
+
+## B08 fulfilment, returns, refunds, and COD collection
+
+Seller fulfilment uses `PATCH /api/v1/seller/orders/:orderId/status`; seller identity comes from the authenticated account, so a seller cannot select another seller's portion. Admin completion uses `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status`. Delivery and pickup have separate transition paths, and the owned fulfilment view returns the immutable Lagos estimate/pickup snapshot.
+
+Customer cancellation releases eligible reservations once. Delivered customers and guests can submit bounded, idempotent item returns. `RETURN_WINDOW_DAYS` and `REFUND_DELIVERY_MODE` intentionally have no production defaults because the owner has not approved those policies. Refund approval therefore fails closed until explicit values are supplied. Local tests use a synthetic 14-day window and `full_order` delivery-fee treatment.
+
+Paystack refunds are persisted before the provider call and reconciled by provider ID, `npm run refunds:reconcile`, or signed refund events. An uncertain create timeout is never blindly retried. Processed refunds append payment-ledger debits and exact seller/commission reversal obligations for B09 classification. COD collection must match the delivered order total and requires a separate admin confirmation before future earnings can become eligible. See `docs/api/fulfilment-returns-refunds.md` and ADR 0009. No live refund or money movement is authorised.

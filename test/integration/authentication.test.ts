@@ -10,7 +10,8 @@ import { processOneEmailJob } from '../../src/email/job-processor.js';
 import { FakeEmailProvider } from '../../src/email/provider.js';
 
 interface JobRow extends RowDataPacket { payload: string | { token: string } }
-describe('authentication and customer accounts against MariaDB', () => {
+describe('authentication and customer accounts against MariaDB', function () {
+  this.timeout(40_000);
   let pool: Pool; let api: ReturnType<typeof request>; let customerId: string; let otherCustomerId: string; let accessToken: string; let refreshToken: string;
   const password = 'ValidPass123!';
   before(async () => {

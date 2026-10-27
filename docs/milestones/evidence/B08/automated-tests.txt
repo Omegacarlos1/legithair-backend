@@ -1,0 +1,53 @@
+B08 automated verification evidence
+Date: 2026-10-27 (Africa/Lagos)
+Branch: feature/B08-fulfilment-returns-refunds
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+Command: npm run lint
+Result: PASS (exit 0, 0 ESLint errors)
+
+Command: npm run typecheck
+Result: PASS (exit 0, 0 TypeScript errors)
+
+Command: npm run build
+Result: PASS (exit 0)
+
+UNIT AND SUPERTEST API CHECKS
+
+The ordinary tsx npm wrappers remain host-blocked before discovery by uv_os_get_passwd/ENOMEM. The established process-local os.userInfo shim loaded tsx/cjs and ran the same repository test files:
+
+node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"
+
+Result: PASS
+Counts: 34 passing, 0 failing, 0 skipped
+Breakdown: 16 unit assertions and 18 Supertest API assertions.
+
+B08 unit/API evidence covers fail-closed return/refund policy, exact Paystack refund create/fetch parsing without unsafe provider-ID coercion, seller/admin route authentication, customer/guest return credentials, and forged webhook rejection before database work.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake
+Database server: MariaDB 10.4.32 (not production MySQL)
+Command: the same process-local shim ran test/integration/**/*.test.ts.
+
+Result: PASS
+Counts: 51 passing, 0 failing, 0 skipped
+B08-specific scenarios: 7 passing.
+
+B08 scenarios proved:
+- invalid fulfilment jumps fail and seller identity cannot alter another seller's portion;
+- customer cancellation releases an eligible reservation and stock exactly once;
+- recorded COD cash remains ineligible until exact admin reconciliation confirms it;
+- return request keys replay safely and delayed Paystack refund status remains pending;
+- duplicate admin approval does not issue a second provider refund;
+- partial then full item refunds create one debit per provider refund and exactly reverse item gross, commission, and seller net, including final delivery treatment under synthetic test policy;
+- a B07 late-payment review creates one controlled refund and resolves only after provider processing;
+- a signed-shape refund event is processed once and duplicate payload delivery creates no duplicate debit;
+- migrations 001-009 repeatedly roll down and up on the disposable schema and create all B01-B08 tables.
+
+NORMAL WRAPPER EVIDENCE
+
+Commands: npm test; npm run test:integration
+Result: HOST BLOCKED before test discovery by uv_os_get_passwd/ENOMEM. The shim results above execute the same TypeScript Mocha files. This host failure is reported and is not counted as an application assertion failure.

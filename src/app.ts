@@ -12,11 +12,15 @@ import { createOrderRouter } from './orders/router.js';
 import type { OrderPolicy } from './orders/types.js';
 import { createPaymentRouter } from './payments/router.js';
 import { UnconfiguredPaymentProvider, type PaymentProvider } from './payments/provider.js';
+import { createFulfilmentRouter } from './fulfilment/router.js';
+import { FulfilmentService } from './fulfilment/service.js';
+import type { FulfilmentPolicy } from './fulfilment/types.js';
+import { UnconfiguredRefundProvider, type RefundProvider } from './refunds/provider.js';
 import { ZodError } from 'zod';
 
-interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; paystackWebhookSecret?: string; paystackCallbackUrl?: string }
+interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string }
 
-export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), paystackWebhookSecret, paystackCallbackUrl }: AppDependencies): express.Express {
+export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), refundProvider = new UnconfiguredRefundProvider(), fulfilmentPolicy = {}, paystackWebhookSecret, paystackCallbackUrl }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb', verify: (req, _res, buffer) => { (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer); } }));
@@ -51,7 +55,9 @@ export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot =
   app.use('/api/v1', createCatalogRouter(pool, imageStorageRoot, imageMaxBytes));
   app.use('/api/v1', createBasketRouter(pool, guestBasketTtlDays, checkoutQuoteTtlSeconds));
   app.use('/api/v1', createOrderRouter(pool, orderPolicy));
-  app.use('/api/v1', createPaymentRouter(pool, paymentProvider, paystackWebhookSecret, paystackCallbackUrl));
+  const fulfilment = new FulfilmentService(pool, refundProvider, fulfilmentPolicy);
+  app.use('/api/v1', createPaymentRouter(pool, paymentProvider, paystackWebhookSecret, paystackCallbackUrl, (event, rawBody) => fulfilment.handleRefundWebhook(event, rawBody)));
+  app.use('/api/v1', createFulfilmentRouter(pool, fulfilment));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;
