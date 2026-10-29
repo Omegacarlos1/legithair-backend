@@ -7,7 +7,8 @@ const fixtures = [
   { id: '10000000-0000-4000-8000-000000000002', email: 'admin.fixture@example.test', name: 'Admin Fixture', roles: ['admin'] },
   { id: '10000000-0000-4000-8000-000000000003', email: 'seller.fixture@example.test', name: 'Seller Fixture', roles: ['customer', 'seller'] },
   { id: '10000000-0000-4000-8000-000000000004', email: 'seller.other@example.test', name: 'Other Seller Fixture', roles: ['customer', 'seller'] },
-  { id: '10000000-0000-4000-8000-000000000005', email: 'finance.fixture@example.test', name: 'Finance Fixture', roles: ['finance'] }
+  { id: '10000000-0000-4000-8000-000000000005', email: 'finance.fixture@example.test', name: 'Finance Fixture', roles: ['finance'] },
+  { id: '10000000-0000-4000-8000-000000000006', email: 'support.fixture@example.test', name: 'Support Fixture', roles: ['support'] }
 ] as const;
 export async function seedTestFixtures(): Promise<void> {
   const config = loadConfig();
