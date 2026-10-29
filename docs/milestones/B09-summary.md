@@ -1,6 +1,6 @@
 # B09 seller earnings and payouts summary
 
-Status: READY_FOR_REVIEW (not accepted)
+Status: ACCEPTED on 2026-10-29
 
 ## Completed scope
 
@@ -44,11 +44,11 @@ The shim and PowerShell environment syntax are recorded verbatim in [automated t
 
 ## Postman
 
-Run migrations and the guarded seed, log in the seller and `finance.fixture@example.test`, then run the B09 requests in order. The positive payout request additionally requires an owner-approved hold duration, explicit `PAYOUTS_ENABLED=true`, a Paystack test secret, an actual test-mode recipient code replacing the placeholder, and eligible synthetic earnings. Keep payouts disabled for normal local review. Owner Postman execution is still open.
+Run migrations and the guarded seed, log in the seller and `finance.fixture@example.test`, then run the B09 requests in order. The positive payout request additionally requires an owner-approved hold duration, explicit `PAYOUTS_ENABLED=true`, a Paystack test secret, an actual test-mode recipient code replacing the placeholder, and eligible synthetic earnings. Keep payouts disabled for normal local review. The owner reported successful manual B09 Postman execution and explicitly accepted the milestone on 2026-10-29; this did not establish Paystack test-mode transfer evidence.
 
 ## Open gates
 
-Owner decisions remain required for hold duration, payout frequency/approval operations, fees, and recoverable-balance treatment. Paystack transfer access, verified recipient operations, test-mode webhook/dashboard evidence, owner Postman review, production MySQL compatibility, deployment, and all live money-movement authority remain open. B09 is ready for review, not accepted. B10 must not start until explicit acceptance.
+Owner decisions remain required for hold duration, payout frequency/approval operations, fees, and recoverable-balance treatment. Paystack transfer access, verified recipient operations, test-mode webhook/dashboard evidence, production MySQL compatibility, deployment, and all live money-movement authority remain open. B09 is accepted, but that acceptance does not close these integration gates or authorise live money movement. B10 remains NOT_STARTED and requires a separate instruction.
 
 ## Pull request description
 
