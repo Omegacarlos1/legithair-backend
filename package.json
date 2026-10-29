@@ -25,6 +25,9 @@
     "payments:verify-provider": "tsx scripts/verify-paystack.ts",
     "refunds:verify-provider": "tsx scripts/verify-paystack-refund.ts",
     "refunds:reconcile": "tsx scripts/reconcile-refunds.ts",
+    "earnings:sync": "tsx scripts/sync-earnings.ts",
+    "payouts:reconcile": "tsx scripts/reconcile-payouts.ts",
+    "payouts:verify-provider": "tsx scripts/verify-paystack-transfer.ts",
     "email:work-once": "tsx scripts/process-email-once.ts",
     "email:worker": "tsx scripts/process-email-worker.ts",
     "email:verify-provider": "tsx scripts/verify-gmail.ts"
