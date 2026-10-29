@@ -52,4 +52,14 @@ describe('configuration', () => {
     assert.equal(configured.RETURN_WINDOW_DAYS, 14);
     assert.equal(configured.REFUND_DELIVERY_MODE, 'full_order');
   });
+
+  it('keeps earnings policy and money movement fail-closed until explicitly configured', () => {
+    const base = { NODE_ENV: 'test', PORT: '3000', DATABASE_HOST: 'localhost', DATABASE_USER: 'test', DATABASE_PASSWORD: '', DATABASE_NAME: 'legit_hair_test' };
+    const disabled = loadConfig(base);
+    assert.equal(disabled.EARNINGS_HOLD_DAYS, undefined);
+    assert.equal(disabled.PAYOUTS_ENABLED, false);
+    const configured = loadConfig({ ...base, EARNINGS_HOLD_DAYS: '14', PAYOUTS_ENABLED: 'true' });
+    assert.equal(configured.EARNINGS_HOLD_DAYS, 14);
+    assert.equal(configured.PAYOUTS_ENABLED, true);
+  });
 });
