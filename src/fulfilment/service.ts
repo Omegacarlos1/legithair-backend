@@ -34,6 +34,7 @@ interface RefundRow extends RowDataPacket {
 interface ReviewRow extends RowDataPacket { id: string; order_id: string; payment_id: string; case_type: string; status: string }
 interface CodRow extends RowDataPacket { id: string; order_id: string; idempotency_key: string; request_hash: string; amount_minor: number | string; currency: string; collection_reference: string; status: string; collected_at: Date; created_at: Date; updated_at: Date }
 interface CountRow extends RowDataPacket { total: number | string }
+interface ProductIdRow extends RowDataPacket { id: string }
 
 const sellerTransitions: Record<string, SuborderStatus[]> = {
   pending: ['processing'],
@@ -216,12 +217,20 @@ export class FulfilmentService {
   }
 
   public async reconcileCodCollection(actorUserId: string, collectionId: string, action: 'confirm' | 'reject', note: string): Promise<object> {
-    const [result] = await this.pool.query<ResultSetHeader>(`UPDATE cod_collections SET status = ?, reconciled_by = ?, reconciliation_note = ?, reconciled_at = NOW(3) WHERE id = ? AND status = 'recorded'`, [action === 'confirm' ? 'confirmed' : 'rejected', actorUserId, note, collectionId]);
-    if (result.affectedRows === 0) {
-      const [rows] = await this.pool.query<CodRow[]>('SELECT * FROM cod_collections WHERE id = ?', [collectionId]);
-      if (!rows[0]) throw new AppError(404, 'COD_COLLECTION_NOT_FOUND', 'Cash collection not found');
-      throw new AppError(409, 'COD_COLLECTION_ALREADY_RECONCILED', 'Cash collection was already reconciled');
-    }
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [rows] = await connection.query<CodRow[]>('SELECT * FROM cod_collections WHERE id = ? FOR UPDATE', [collectionId]);
+      const collection = rows[0];
+      if (!collection) throw new AppError(404, 'COD_COLLECTION_NOT_FOUND', 'Cash collection not found');
+      if (collection.status !== 'recorded') throw new AppError(409, 'COD_COLLECTION_ALREADY_RECONCILED', 'Cash collection was already reconciled');
+      await connection.query(`UPDATE cod_collections SET status = ?, reconciled_by = ?, reconciliation_note = ?, reconciled_at = NOW(3) WHERE id = ?`, [action === 'confirm' ? 'confirmed' : 'rejected', actorUserId, note, collectionId]);
+      if (action === 'confirm') {
+        await connection.query<ProductIdRow[]>('SELECT p.id FROM products p JOIN order_items oi ON oi.product_id = p.id WHERE oi.order_id = ? ORDER BY p.id FOR UPDATE', [collection.order_id]);
+        await connection.query(`UPDATE products p JOIN order_items oi ON oi.product_id = p.id SET p.paid_units_sold = p.paid_units_sold + oi.quantity WHERE oi.order_id = ?`, [collection.order_id]);
+      }
+      await connection.commit();
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
     return this.codView(collectionId);
   }
 
