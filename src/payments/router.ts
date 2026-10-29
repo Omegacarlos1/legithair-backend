@@ -27,7 +27,7 @@ const webhookSchema = z.object({
 }).passthrough();
 const asyncRoute = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(next); };
 
-export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webhookSecret?: string, callbackUrl?: string, refundWebhookHandler?: (event: { event: string; data: Record<string, unknown> }, rawBody: Buffer) => Promise<object>): Router {
+export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webhookSecret?: string, callbackUrl?: string, refundWebhookHandler?: (event: { event: string; data: Record<string, unknown> }, rawBody: Buffer) => Promise<object>, transferWebhookHandler?: (event: { event: string; data: Record<string, unknown> }, rawBody: Buffer) => Promise<object>): Router {
   const router = Router();
   const auth = new AuthService(pool);
   const payments = new PaymentService(pool, provider, callbackUrl ? { callbackUrl } : {});
@@ -67,6 +67,12 @@ export function createPaymentRouter(pool: Pool, provider: PaymentProvider, webho
     if (envelope.event.startsWith('refund.')) {
       if (!refundWebhookHandler) throw new AppError(503, 'REFUND_WEBHOOK_NOT_CONFIGURED', 'Refund webhook handling is not configured');
       const result = await refundWebhookHandler(envelope, req.rawBody!);
+      res.json({ success: true, data: result, meta: { requestId: req.id } });
+      return;
+    }
+    if (envelope.event.startsWith('transfer.')) {
+      if (!transferWebhookHandler) throw new AppError(503, 'TRANSFER_WEBHOOK_NOT_CONFIGURED', 'Transfer webhook handling is not configured');
+      const result = await transferWebhookHandler(envelope, req.rawBody!);
       res.json({ success: true, data: result, meta: { requestId: req.id } });
       return;
     }

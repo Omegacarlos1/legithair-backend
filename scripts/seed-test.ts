@@ -6,7 +6,8 @@ const fixtures = [
   { id: '10000000-0000-4000-8000-000000000001', email: 'customer.fixture@example.test', name: 'Customer Fixture', roles: ['customer'] },
   { id: '10000000-0000-4000-8000-000000000002', email: 'admin.fixture@example.test', name: 'Admin Fixture', roles: ['admin'] },
   { id: '10000000-0000-4000-8000-000000000003', email: 'seller.fixture@example.test', name: 'Seller Fixture', roles: ['customer', 'seller'] },
-  { id: '10000000-0000-4000-8000-000000000004', email: 'seller.other@example.test', name: 'Other Seller Fixture', roles: ['customer', 'seller'] }
+  { id: '10000000-0000-4000-8000-000000000004', email: 'seller.other@example.test', name: 'Other Seller Fixture', roles: ['customer', 'seller'] },
+  { id: '10000000-0000-4000-8000-000000000005', email: 'finance.fixture@example.test', name: 'Finance Fixture', roles: ['finance'] }
 ] as const;
 export async function seedTestFixtures(): Promise<void> {
   const config = loadConfig();
@@ -50,7 +51,7 @@ export async function seedTestFixtures(): Promise<void> {
       ON DUPLICATE KEY UPDATE is_active = TRUE, is_synthetic = TRUE`, [fixtures[1].id]);
     await pool.query(`INSERT INTO indicative_exchange_rates (currency, ngn_minor_per_currency_minor, updated_by)
       VALUES ('USD', 1500, ?) ON DUPLICATE KEY UPDATE ngn_minor_per_currency_minor = 1500, updated_by = VALUES(updated_by), updated_at = NOW(3)`, [fixtures[1].id]);
-    process.stdout.write(`Seeded ${fixtures.length} synthetic users, ${syntheticSellers.length} synthetic approved sellers, and ${basketProducts.length} B05-B08 checkout products. Login password: FixturePass123!\n`);
+    process.stdout.write(`Seeded ${fixtures.length} synthetic users, ${syntheticSellers.length} synthetic approved sellers, and ${basketProducts.length} B05-B09 checkout products. Login password: FixturePass123!\n`);
   } finally {
     await pool.end();
   }

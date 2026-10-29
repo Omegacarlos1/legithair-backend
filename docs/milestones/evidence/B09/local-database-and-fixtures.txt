@@ -1,0 +1,15 @@
+B09 local database and fixture evidence
+Final rerun: 2026-10-29 (Africa/Lagos)
+
+- Development target `legit_hair_app`: migrations 010 through 012 applied successfully through the established process-local host shim.
+- Disposable target `legit_hair_app_test`: migrations 001-012 repeatedly rolled down/up; 56 integration scenarios passed.
+- Guarded seed: PASS with 5 synthetic users (including finance), 2 synthetic approved sellers, and 2 checkout products.
+- Seed refusal outside `_test`: verified by the existing guard; no development seed was performed.
+- Database server: MariaDB 10.4.32. This is not evidence of production MySQL compatibility.
+- No provider network call, real recipient, real bank details, live key, or live money movement was used.
+
+Final migration command:
+`node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); require('tsx/cjs'); require('./src/database/migrate.ts').migrate('up').catch((error)=>{console.error(error);process.exitCode=1});"`
+
+Final guarded seed command after setting `NODE_ENV=test`, `DATABASE_NAME=legit_hair_app_test`, and `EMAIL_PROVIDER=fake` in PowerShell:
+`node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); require('tsx/cjs'); require('./scripts/seed-test.ts').seedTestFixtures().catch((error)=>{console.error(error);process.exitCode=1});"`

@@ -1,0 +1,46 @@
+B09 automated verification evidence
+Final rerun: 2026-10-29 (Africa/Lagos)
+Branch: feature/B09-seller-earnings-payouts
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+- `npm run lint`: PASS, 0 errors
+- `npm run typecheck`: PASS, 0 errors
+- `npm run build`: PASS
+- Postman collection and environment JSON parse: PASS
+
+UNIT AND SUPERTEST API CHECKS
+
+The ordinary tsx npm wrappers remain host-blocked before discovery by `uv_os_get_passwd`/`ENOMEM`. The established process-local `os.userInfo` shim loaded `tsx/cjs` and ran the same repository files.
+
+Command:
+`node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"`
+
+Result: PASS, 40 passing, 0 failing, 0 skipped.
+Breakdown: 19 unit and 21 Supertest API assertions.
+
+New B09 coverage includes fail-closed configuration, exact Paystack transfer request parsing, original-reference verification, seller earnings authentication, and customer/seller payout-approval rejection.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: `NODE_ENV=test`, `DATABASE_NAME=legit_hair_app_test`, `EMAIL_PROVIDER=fake`
+Server: MariaDB 10.4.32 (not production MySQL)
+Command (PowerShell):
+`$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({username:'codex',uid:-1,gid:-1,shell:null,homedir:process.cwd()}); process.argv=['node','mocha','--require','tsx/cjs','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js');"`
+Result: PASS, 56 passing, 0 failing, 0 skipped; 5 B09-specific scenarios.
+
+B09 scenarios establish that held earnings cannot be paid, rejected transfers restore eligibility once, idempotent replay creates no second provider transfer, timeout recovery verifies the original durable reference, a post-payout refund consumes available balance before creating a recoverable amount without negative availability, and a later provider reversal settles that recovery before restoring only the remainder to payout eligibility.
+
+The first final-suite attempt exposed the migration test's inherited two-second timeout. Its still-running DDL overlapped subsequent suites and left only the disposable `_test` schema inconsistent. The timeout was raised to 40 seconds, the exact `legit_hair_app_test` schema was reset, and the complete suite then passed. No application assertion failure was hidden.
+
+NORMAL WRAPPER EVIDENCE
+
+`npm run test:unit`, `npm run test:api`, and `npm run test:integration` remain blocked before test discovery by the Windows host issue above. The unchanged files passed through the process-local shim.
+
+FINAL TOTAL
+
+- Unit: 19 passing
+- Supertest API: 21 passing
+- MariaDB integration: 56 passing
+- Total: 96 passing, 0 application failures, 0 skipped

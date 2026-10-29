@@ -1,0 +1,9 @@
+B09 Postman contract evidence
+Final JSON parse: 2026-10-29 (Africa/Lagos)
+
+- Collection and environment JSON parse successfully.
+- Added finance fixture login, seller earnings, forbidden seller payout approval, masked Paystack recipient binding, finance payout creation, and payout lookup.
+- Environment uses placeholder `RCP_replace_with_test_recipient`; it contains no secret or real account number.
+- Prerequisites: migrate, run guarded `npm run seed:test`, configure owner-approved `EARNINGS_HOLD_DAYS`, keep `PAYOUTS_ENABLED=false` unless performing an explicitly authorised Paystack test-mode transfer, and complete the B08 synthetic order flow to create eligible earnings.
+- Owner/manual Postman execution: PASS, owner-reported on 2026-10-29 after manually exercising the B09 flow.
+- Scope note: this owner report closes the manual Postman review gate but does not claim Paystack test-mode transfer/dashboard evidence, production MySQL verification, or live money movement.

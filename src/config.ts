@@ -45,7 +45,9 @@ const schema = z.object({
   PAYSTACK_CALLBACK_URL: z.preprocess((value) => value === '' ? undefined : value, z.url().optional()),
   PAYSTACK_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(10_000),
   RETURN_WINDOW_DAYS: optionalNumber(1, 365),
-  REFUND_DELIVERY_MODE: z.preprocess((value) => value === '' ? undefined : value, z.enum(['never', 'full_order']).optional())
+  REFUND_DELIVERY_MODE: z.preprocess((value) => value === '' ? undefined : value, z.enum(['never', 'full_order']).optional()),
+  EARNINGS_HOLD_DAYS: optionalNumber(0, 365),
+  PAYOUTS_ENABLED: z.enum(['true', 'false']).default('false').transform((value) => value === 'true')
 }).superRefine((config, context) => {
   if (config.EMAIL_PROVIDER !== 'gmail') return;
   if (!config.GMAIL_USER) context.addIssue({ code: 'custom', path: ['GMAIL_USER'], message: 'GMAIL_USER is required for Gmail delivery' });
