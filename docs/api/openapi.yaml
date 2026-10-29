@@ -434,6 +434,69 @@ paths:
       security: [{ bearerAuth: [] }]
       summary: Verify an uncertain or pending transfer by its original provider reference
       responses: { '200': { description: Reconciled or still pending }, '403': { description: Finance role required } }
+  /api/v1/products/{productId}/reviews:
+    get:
+      summary: List published purchase-linked reviews for a public product
+      parameters:
+        - { in: path, name: productId, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses: { '200': { description: Published reviews and rating summary }, '404': { description: Published product not found } }
+  /api/v1/reviews:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Submit one idempotent review linked to the authenticated customer's completed purchase
+      parameters: [{ in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReview' } } } }
+      responses: { '201': { description: Pending review created }, '200': { description: Identical idempotent replay }, '403': { description: Customer role or completed purchase required }, '409': { description: Review already exists or key reused } }
+  /api/v1/admin/reviews:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List reviews by moderation status
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [pending, published, rejected], default: pending } }
+        - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+      responses: { '200': { description: Moderation queue }, '403': { description: Admin role required } }
+  /api/v1/admin/reviews/{reviewId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Publish or reject a review with an audited reason
+      parameters: [{ in: path, name: reviewId, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ModerateReview' } } } }
+      responses: { '200': { description: Review moderation state updated }, '403': { description: Admin role required }, '404': { description: Review not found } }
+  /api/v1/banners:
+    get:
+      summary: List active homepage banners in their configured time windows
+      responses: { '200': { description: Public banner list } }
+  /api/v1/admin/banners:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all homepage banners
+      responses: { '200': { description: Banner administration list }, '403': { description: Admin role required } }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create an audited homepage banner
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateBanner' } } } }
+      responses: { '201': { description: Banner created }, '400': { description: Invalid URL or time window }, '403': { description: Admin role required } }
+  /api/v1/admin/banners/{bannerId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update activation, content, order, or time window for a banner
+      parameters: [{ in: path, name: bannerId, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateBanner' } } } }
+      responses: { '200': { description: Banner updated }, '400': { description: Invalid URL or time window }, '403': { description: Admin role required }, '404': { description: Banner not found } }
+  /api/v1/admin/reports/{report}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read or export a separately defined financial or product report
+      parameters:
+        - { in: path, name: report, required: true, schema: { type: string, enum: [sales, products, refunds, commissions, earnings, payouts] } }
+        - { in: query, name: from, schema: { type: string, format: date } }
+        - { in: query, name: to, schema: { type: string, format: date } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 } }
+        - { in: query, name: format, schema: { type: string, enum: [json, csv], default: json } }
+      responses: { '200': { description: Decimal-string NGN minor-unit report or formula-safe CSV attachment }, '400': { description: Invalid date range or query }, '403': { description: Admin or finance role required; support is forbidden } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -477,6 +540,48 @@ components:
         amountMinor: { type: integer, minimum: 0 }
         collectionReference: { type: string, minLength: 3, maxLength: 190, pattern: '^[A-Za-z0-9._:/-]+$' }
         collectedAt: { type: string, format: date-time }
+    CreateReview:
+      type: object
+      required: [orderItemId, rating, title, body]
+      additionalProperties: false
+      properties:
+        orderItemId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string, minLength: 2, maxLength: 160 }
+        body: { type: string, minLength: 10, maxLength: 5000 }
+    ModerateReview:
+      type: object
+      required: [status, reason]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [published, rejected] }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    CreateBanner:
+      type: object
+      required: [title, imageUrl]
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 2, maxLength: 160 }
+        subtitle: { type: [string, 'null'], minLength: 2, maxLength: 300 }
+        imageUrl: { type: string, maxLength: 500, description: HTTPS URL or application-relative path. }
+        targetUrl: { type: [string, 'null'], maxLength: 500, description: HTTPS URL or application-relative path. }
+        position: { type: integer, minimum: 0, maximum: 1000, default: 0 }
+        status: { type: string, enum: [draft, active, inactive], default: draft }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
+    UpdateBanner:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 2, maxLength: 160 }
+        subtitle: { type: [string, 'null'], minLength: 2, maxLength: 300 }
+        imageUrl: { type: string, maxLength: 500, description: HTTPS URL or application-relative path. }
+        targetUrl: { type: [string, 'null'], maxLength: 500, description: HTTPS URL or application-relative path. }
+        position: { type: integer, minimum: 0, maximum: 1000 }
+        status: { type: string, enum: [draft, active, inactive] }
+        startsAt: { type: [string, 'null'], format: date-time }
+        endsAt: { type: [string, 'null'], format: date-time }
     Register:
       type: object
       required: [email, password, displayName]
