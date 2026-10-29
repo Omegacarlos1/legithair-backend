@@ -405,6 +405,35 @@ paths:
       parameters: [{ name: collectionId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [action, note], additionalProperties: false, properties: { action: { type: string, enum: [confirm, reject] }, note: { type: string, minLength: 3, maxLength: 500 } } } } } }
       responses: { '200': { description: Collection reconciled }, '404': { description: Collection not found }, '409': { description: Collection already reconciled } }
+  /api/v1/seller/earnings:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the authenticated seller's held, available, reserved, paid, and recoverable NGN balances
+      responses: { '200': { description: Append-only ledger balances }, '401': { description: Unauthenticated }, '403': { description: Seller role required } }
+  /api/v1/admin/sellers/{sellerId}/payout-recipient:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Bind a previously verified Paystack recipient code to a seller
+      parameters: [{ in: path, name: sellerId, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Recipient configured with masked account metadata }, '403': { description: Finance role required } }
+  /api/v1/admin/payouts:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Reserve available earnings and initiate one NGN Paystack transfer
+      parameters: [{ in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [sellerId, amountMinor], additionalProperties: false, properties: { sellerId: { type: string, format: uuid }, amountMinor: { type: integer, minimum: 1 } } } } } }
+      responses: { '202': { description: Payout persisted and provider initiation attempted }, '200': { description: Idempotent replay }, '403': { description: Finance role required }, '409': { description: Insufficient available earnings, recipient absent, or key reused }, '503': { description: Payout policy disabled } }
+  /api/v1/admin/payouts/{payoutId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read a payout and its provider reconciliation state
+      parameters: [{ in: path, name: payoutId, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Payout state }, '403': { description: Finance role required }, '404': { description: Payout not found } }
+  /api/v1/admin/payouts/{payoutId}/reconcile:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Verify an uncertain or pending transfer by its original provider reference
+      responses: { '200': { description: Reconciled or still pending }, '403': { description: Finance role required } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }

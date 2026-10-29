@@ -1,0 +1,9 @@
+B09 Paystack transfer acceptance evidence
+Date: 2026-10-27 (Africa/Lagos)
+
+Local fake-provider verification: PASS.
+Official contracts checked: transfer initiation, transfer verification, transfer lifecycle, recipient codes, and signed webhook events.
+Paystack test-mode API/dashboard execution: NOT RUN; no test secret and disposable verified recipient/reference were supplied.
+Live provider execution: NOT AUTHORISED and NOT RUN.
+
+`npm run payouts:verify-provider` is intentionally verification-only: it requires a test secret and `PAYSTACK_TRANSFER_ACCEPTANCE_REFERENCE`, and never creates a transfer.
