@@ -5,7 +5,7 @@ ARTIFACT CHECK
 
 - `postman/Legit_Hair_Backend.postman_collection.json`: JSON parse PASS
 - `postman/Local.postman_environment.json`: JSON parse PASS
-- Owner manual execution: NOT RUN / NOT CLAIMED
+- Owner manual execution: PARTIAL; login/review requests were exercised and B10 was explicitly accepted on 2026-10-30, but the complete request set was not separately reported
 - No collection file needs to be imported when the maintained repository collection is already open; refresh it and use the Local environment.
 
 MANUAL ORDER

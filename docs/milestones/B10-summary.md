@@ -1,6 +1,6 @@
 # B10 reviews, merchandising, and reporting summary
 
-Status: READY_FOR_REVIEW on 2026-10-29
+Status: ACCEPTED on 2026-10-30
 
 ## Completed scope
 
@@ -48,11 +48,11 @@ The exact process-local shim and PowerShell environment syntax are recorded in [
 
 Do not import a new file if the maintained collection is already open; refresh/reopen the repository collection and select the Local environment. Start MariaDB and the API, run migrations, and run the guarded seed against `legit_hair_app_test`. The review request uses `b08ReturnOrderItemId`, so first complete the existing synthetic paid/fulfilled B06-B08 flow or retain those variables from the accepted B08 manual run. Then run the B10 requests in their displayed order: customer review, other-customer rejection, admin publish/read/reject/hidden checks, related products, admin banner create/read, finance reports, support-forbidden report and CSV export. See [Postman evidence](evidence/B10/postman-contract.txt) for expected statuses and variable usage.
 
-The collection and environment parse successfully and include assertions. Owner manual execution is not claimed and remains an acceptance gate.
+The collection and environment parse successfully and include assertions. The owner manually exercised the login and review requests and explicitly accepted B10 on 2026-10-30. A complete item-by-item Postman run was not separately reported, so that evidence remains partial rather than being inferred from acceptance.
 
 ## Open gates and limitations
 
-- Owner manual Postman execution and explicit B10 acceptance are not complete.
+- B10 owner acceptance is complete. Complete item-by-item owner Postman evidence remains open.
 - Verification used MariaDB 10.4.32, not production MySQL.
 - Deployment-scale report performance, retention periods and final production staff-role assignments remain owner/release decisions.
 - Reports are bounded operational views over current transactional records, not an analytics warehouse. Gross sales preserve settled pre-refund value; refunds and financial reversals are separate reports by design.
@@ -60,11 +60,11 @@ The collection and environment parse successfully and include assertions. Owner 
 
 ## Pull request description
 
-Implement B10 purchase-linked reviews and moderation, category merchandising, audited banners, paid-unit popularity, role-separated financial reports and formula-safe CSV export. Add migration 013, OpenAPI/Postman contracts, guarded support fixtures and 104 passing automated checks. Main risks are destructive B10 rollback, unverified production MySQL/performance and pending owner Postman acceptance. No provider call or live money movement occurred.
+Implement B10 purchase-linked reviews and moderation, category merchandising, audited banners, paid-unit popularity, role-separated financial reports and formula-safe CSV export. Add migration 013, OpenAPI/Postman contracts, guarded support fixtures and 104 passing automated checks. Main risks are destructive B10 rollback, unverified production MySQL/performance and incomplete item-by-item owner Postman evidence. No provider call or live money movement occurred. B10 was explicitly accepted on 2026-10-30.
 
 ## Complete next-milestone prompt
 
-Use the following only after B10 is explicitly accepted. B11 must not start while B10 remains `READY_FOR_REVIEW`.
+The B11 entry gate is now satisfied by explicit B10 acceptance. B11 remains `NOT_STARTED` and requires a separate owner instruction.
 
 ```text
 ## B11 Realtime support and notifications
