@@ -1,0 +1,36 @@
+B11 AUTOMATED TEST EVIDENCE
+Date: 2026-10-30
+
+Static checks
+- npm run lint: PASS, exit 0
+- npm run typecheck: PASS, exit 0
+- npm run build: PASS, exit 0
+
+Normal wrapper diagnostic
+- npm test: BLOCKED before discovery by SystemError ERR_SYSTEM_ERROR, uv_os_get_passwd returned ENOMEM.
+- npm run test:integration: same host-level failure before discovery.
+- This is the established Windows host condition. The same test files were run with the process-local os.userInfo shim below.
+
+Unit command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/unit/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Result: 21 passing (63ms), 0 failing, 0 skipped.
+
+API command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Result: 25 passing (308ms), 0 failing, 0 skipped.
+
+Integration command
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result: 64 passing (55s), 0 failing, 0 skipped.
+
+Socket command
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/socket/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result: 2 passing (5s), 0 failing, 0 skipped.
+
+Total final automated result
+112 passing, 0 failing, 0 skipped.
+
+Diagnostic recovery
+- A first full integration attempt produced 63 passing and one timeout because an earlier local API process retained connections to the disposable schema during repeated rollback/up cycles.
+- The local API/watch processes were stopped. The affected payments file then passed 7/7 in 6 seconds and the clean full integration suite passed 64/64.
+- One socket rerun consumed an older valid outbox event in the test listener. The listener was corrected to filter by the target client ID; final socket result was 2/2.

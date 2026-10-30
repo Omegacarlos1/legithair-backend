@@ -1,6 +1,6 @@
 # Legit Hair backend
 
-B01-B10 provide the Express 5 and TypeScript backend foundation through fulfilment, payouts, purchase-linked reviews, merchandising, and auditable reports.
+B01-B11 provide the Express 5 and TypeScript backend foundation through fulfilment, payouts, purchase-linked reviews, merchandising, auditable reports, persistent support chat, and consent-controlled notifications.
 
 ## Local setup with XAMPP MariaDB
 
@@ -15,8 +15,9 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 
 - `npm run lint`, `npm run typecheck`, `npm test`
 - `npm run test:integration` (requires an isolated MariaDB test schema)
+- `npm run test:socket` (requires the isolated MariaDB test schema and opens an ephemeral local Socket.IO server)
 - `npm run migrate`, `npm run migrate:down`
-- `npm run seed:test` (creates guarded synthetic B02-B10 fixtures, including finance, support, and two test-only approved sellers)
+- `npm run seed:test` (creates guarded synthetic B02-B11 fixtures, including customer, admin, finance, support, and two test-only approved sellers)
 - `npm run orders:release-expired` (idempotently releases due B06 reservations; schedule this in deployed environments)
 - `npm run payments:reconcile` (verifies persisted pending Paystack references; alerts with a non-zero exit on provider failures)
 - `npm run payments:verify-provider` (explicit Paystack test-mode acceptance; refuses live keys)
@@ -100,3 +101,9 @@ The `finance` role binds an already verified Paystack recipient code and approve
 Authenticated customers can submit one idempotent review only for an item in their own settled, fulfilled order. Reviews remain pending until an admin publishes or rejects them; only published reviews are public. Category-related products remain popularity ordered, and both verified Paystack settlement and confirmed COD collection increment `paid_units_sold` exactly once.
 
 Admins manage audited homepage banners and review moderation. Admin and finance roles can read separately defined sales, products, refunds, commissions, seller-earnings, and payout reports; support cannot access financial reports or content administration. CSV exports quote every cell and prefix formula-like values. Report money totals are decimal strings in NGN minor units to preserve aggregate precision. See `docs/api/reviews-merchandising-reporting.md` and ADR 0011.
+
+## B11 realtime support and notifications
+
+Customer support threads and messages are persisted before Socket.IO publication. Connections authenticate with bearer access tokens, authorized joins control room membership, client UUIDs deduplicate retries, acknowledgements return the stored message and reconnects fetch missed history after a bigint message offset. HTTP history and message routes remain available when sockets are unavailable. The leased outbox publisher is at-least-once, so clients deduplicate persistent event/message IDs.
+
+Email jobs now record delivery and attempt state, recover abandoned worker leases, stop after a bounded retry count and retain one logical job across retries. Marketing defaults off, requires explicit customer consent, respects unsubscribe/bounce/complaint/manual suppression at send time and includes an opaque unsubscribe link. Set `MARKETING_UNSUBSCRIBE_BASE_URL` to the public `/api/v1/marketing/unsubscribe` URL before campaign creation; production sender/DNS/provider approval remains open. See `docs/api/support-notifications.md` and ADR 0012.

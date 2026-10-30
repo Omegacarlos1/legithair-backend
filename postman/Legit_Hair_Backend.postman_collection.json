@@ -508,6 +508,46 @@
       "name": "B10 Products CSV export",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/products?format=csv" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('CSV attachment', () => { pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'); pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'); });" ] } }]
+    },
+    {
+      "name": "B11 Customer marketing opt-in",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"optedIn\":true}" }, "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('explicit opt in recorded', () => pm.expect(pm.response.json().data.preference.optedIn).to.eql(true));" ] } }]
+    },
+    {
+      "name": "B11 Create support thread",
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.environment.set('b11ClientId', pm.variables.replaceIn('{{$randomUUID}}'));" ] } }, { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b11ThreadId', b.data.thread.id); pm.environment.set('b11MessageId', b.data.message.id);", "pm.test('message persisted', () => pm.expect(b.data.message.clientId).to.eql(pm.environment.get('b11ClientId')));" ] } }],
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"subject\":\"Help with my synthetic order\",\"message\":\"I need help checking the delivery status.\",\"clientId\":\"{{b11ClientId}}\"}" }, "url": "{{baseUrl}}/api/v1/support/threads" }
+    },
+    {
+      "name": "B11 Read support history fallback",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }], "url": "{{baseUrl}}/api/v1/support/threads/{{b11ThreadId}}/messages" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('initial message recovered', () => pm.expect(pm.response.json().data.messages.map(m => m.id)).to.include(pm.environment.get('b11MessageId')));" ] } }]
+    },
+    {
+      "name": "B11 Cross-thread access - negative",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }], "url": "{{baseUrl}}/api/v1/support/threads/{{b11ThreadId}}/messages" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 404', () => pm.response.to.have.status(404));", "pm.test('thread hidden', () => pm.expect(pm.response.json().error.code).to.eql('SUPPORT_THREAD_NOT_FOUND'));" ] } }]
+    },
+    {
+      "name": "B11 Support HTTP reply",
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.environment.set('b11ClientId', pm.variables.replaceIn('{{$randomUUID}}'));" ] } }, { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "pm.test('support reply persisted', () => pm.expect(pm.response.json().data.message.clientId).to.eql(pm.environment.get('b11ClientId')));" ] } }],
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{supportAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"body\":\"Support has received your synthetic request.\",\"clientId\":\"{{b11ClientId}}\"}" }, "url": "{{baseUrl}}/api/v1/support/threads/{{b11ThreadId}}/messages" }
+    },
+    {
+      "name": "B11 Create marketing campaign",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"subject\":\"Synthetic B11 styles\",\"body\":\"This local promotional message is only for explicitly opted-in fixtures.\"}" }, "url": "{{baseUrl}}/api/v1/admin/marketing/campaigns" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b11CampaignId', b.data.campaign.id);", "pm.test('at least customer queued', () => pm.expect(b.data.queuedRecipients).to.be.above(0));" ] } }]
+    },
+    {
+      "name": "B11 Support campaign creation - negative",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{supportAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"subject\":\"Forbidden campaign\",\"body\":\"Support must not broadcast marketing messages.\"}" }, "url": "{{baseUrl}}/api/v1/admin/marketing/campaigns" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));" ] } }]
+    },
+    {
+      "name": "B11 Customer marketing opt-out",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"optedIn\":false}" }, "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('opt out suppresses marketing', () => { const p=pm.response.json().data.preference; pm.expect(p.optedIn).to.eql(false); pm.expect(p.suppressed).to.eql(true); });" ] } }]
     }
   ]
 }

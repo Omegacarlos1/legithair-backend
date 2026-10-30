@@ -1,0 +1,18 @@
+B11 DEPENDENCY AND PROVIDER CHECKS
+Date: 2026-10-30
+
+Dependencies
+- socket.io pinned at 4.8.4.
+- socket.io-client pinned at 4.8.4 as a development dependency.
+- npm audit --audit-level=low: found 0 vulnerabilities.
+
+Provider checks
+- EMAIL_PROVIDER=fake was forced for MariaDB and Socket.IO tests; no external email was sent.
+- Gmail provider unit tests rendered transactional and marketing messages without network access, including List-Unsubscribe and one-click unsubscribe headers.
+- Production sender credentials, DNS authentication, bounce/complaint ingestion, quotas, reputation and provider monitoring were not tested and remain release gates.
+
+Socket.IO delivery basis
+- Default in-memory arrival is not treated as durable delivery.
+- Database persistence and outbox commit occur before emit.
+- Consumers recover from a database offset and deduplicate at-least-once events by event/message ID.
+- Official references reviewed: https://socket.io/docs/v4/delivery-guarantees/ , https://socket.io/docs/v4/middlewares/ , https://socket.io/docs/v4/rooms/ , https://socket.io/docs/v4/server-options/
