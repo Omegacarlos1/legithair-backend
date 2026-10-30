@@ -15,7 +15,7 @@ process.stdout.write(`Email worker started with ${config.EMAIL_PROVIDER} provide
 try {
   while (!stopping) {
     try {
-      const processed = await processOneEmailJob(pool, provider);
+      const processed = await processOneEmailJob(pool, provider, config.EMAIL_JOB_LOCK_TIMEOUT_SECONDS);
       if (!processed) await delay(config.EMAIL_WORKER_POLL_MS);
     } catch (error) {
       process.stderr.write(`Email delivery failed: ${error instanceof Error ? error.message : 'unknown provider error'}\n`);

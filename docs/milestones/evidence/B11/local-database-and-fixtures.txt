@@ -1,0 +1,28 @@
+B11 LOCAL DATABASE AND FIXTURE EVIDENCE
+Date: 2026-10-30
+
+Engine used
+- Local XAMPP MariaDB 10.4.32 on 127.0.0.1:3306.
+- This is not production MySQL compatibility evidence.
+
+Disposable integration target
+- NODE_ENV=test
+- DATABASE_NAME=legit_hair_app_test
+- EMAIL_PROVIDER=fake
+- Every integration/socket run checks the _test suffix before migrations.
+- Migration 014 was repeatedly rolled down and up through the complete migration runner.
+
+Development migration command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./src/database/migrate.ts').migrate('up').catch(e=>{console.error(e.message);process.exit(1)})"
+Output:
+Database connected successfully (legit_hair_app)
+Migrations applied successfully
+
+Guarded seed command
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./scripts/seed-test.ts').seedTestFixtures().catch(e=>{console.error(e.message);process.exit(1)})"
+Output:
+Seeded 6 synthetic B02-B11 users, 2 synthetic approved sellers, and 2 checkout products. Login password: FixturePass123!
+
+Migration recovery risk
+- 014 down drops persistent support history, all B11 consent/suppression/campaign/unsubscribe records, and email delivery evidence.
+- Production rollback therefore requires export/retention planning or a reviewed forward-recovery migration.

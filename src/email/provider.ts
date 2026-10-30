@@ -3,7 +3,8 @@ import type { AppConfig } from '../config.js';
 
 export type EmailMessage =
   | { to: string; template: 'verification' | 'password_reset'; token: string }
-  | { to: string; template: 'paid_receipt'; orderId: string; receiptNumber: string; amountMinor: number; currency: string };
+  | { to: string; template: 'paid_receipt'; orderId: string; receiptNumber: string; amountMinor: number; currency: string }
+  | { to: string; template: 'marketing'; subject: string; body: string; unsubscribeUrl: string };
 export interface EmailProvider { send(message: EmailMessage): Promise<void> }
 
 interface MailTransport {
@@ -41,7 +42,8 @@ export class GmailEmailProvider implements EmailProvider {
       to: message.to,
       subject: content.subject,
       text: content.text,
-      html: content.html
+      html: content.html,
+      ...(message.template === 'marketing' ? { headers: { 'List-Unsubscribe': `<${message.unsubscribeUrl}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } } : {})
     });
   }
 
@@ -67,6 +69,13 @@ export function createGmailEmailProvider(config: AppConfig): GmailEmailProvider 
 }
 
 function createEmailContent(message: EmailMessage): { subject: string; text: string; html: string } {
+  if (message.template === 'marketing') {
+    return {
+      subject: message.subject,
+      text: `${message.body}\n\nUnsubscribe: ${message.unsubscribeUrl}`,
+      html: `<div>${escapeHtml(message.body).replaceAll('\n', '<br>')}</div><p><a href="${escapeHtml(message.unsubscribeUrl)}">Unsubscribe</a></p>`
+    };
+  }
   if (message.template === 'paid_receipt') {
     const receiptNumber = escapeHtml(message.receiptNumber);
     const orderId = escapeHtml(message.orderId);

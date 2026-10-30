@@ -17,6 +17,7 @@
     "test:unit": "mocha --require tsx/cjs \"test/unit/**/*.test.ts\"",
     "test:api": "mocha --require tsx/cjs \"test/api/**/*.test.ts\"",
     "test:integration": "mocha --require tsx/cjs \"test/integration/**/*.test.ts\"",
+    "test:socket": "mocha --require tsx/cjs \"test/socket/**/*.test.ts\"",
     "migrate": "tsx src/database/migrate.ts up",
     "migrate:down": "tsx src/database/migrate.ts down",
     "seed:test": "tsx scripts/seed-test.ts",
@@ -42,6 +43,7 @@
     "nodemailer": "10.2.1",
     "pino": "10.4.0",
     "pino-http": "11.0.0",
+    "socket.io": "4.8.4",
     "zod": "4.6.6"
   },
   "devDependencies": {
@@ -54,6 +56,7 @@
     "@types/supertest": "7.2.1",
     "eslint": "10.12.0",
     "mocha": "12.0.3",
+    "socket.io-client": "4.8.4",
     "supertest": "7.3.1",
     "tsx": "4.23.15",
     "typescript": "6.0.3",

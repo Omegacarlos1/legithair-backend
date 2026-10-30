@@ -497,6 +497,76 @@ paths:
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 5000, default: 1000 } }
         - { in: query, name: format, schema: { type: string, enum: [json, csv], default: json } }
       responses: { '200': { description: Decimal-string NGN minor-unit report or formula-safe CSV attachment }, '400': { description: Invalid date range or query }, '403': { description: Admin or finance role required; support is forbidden } }
+  /api/v1/support/threads:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List the authenticated customer's threads or the staff support queue
+      parameters: [{ in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }]
+      responses: { '200': { description: Authorized support thread list }, '403': { description: Customer, support, or admin role required } }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Create an idempotent customer support thread with its first persistent message
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateSupportThread' } } } }
+      responses: { '201': { description: Thread and initial message created }, '200': { description: Identical client-ID replay }, '403': { description: Customer role required }, '409': { description: Client ID reused with different content } }
+  /api/v1/support/threads/{threadId}/messages:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Fetch authorized persistent message history, including reconnect recovery after an offset
+      parameters:
+        - { in: path, name: threadId, required: true, schema: { type: string, format: uuid } }
+        - { in: query, name: afterMessageId, schema: { type: string, pattern: '^\d+$' } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+      responses: { '200': { description: Ascending persistent message history }, '404': { description: Thread absent or inaccessible } }
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Persist an idempotent message through the HTTP fallback
+      parameters: [{ in: path, name: threadId, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateSupportMessage' } } } }
+      responses: { '201': { description: Message persisted and outbox event queued }, '200': { description: Identical client-ID replay }, '404': { description: Thread absent or inaccessible }, '409': { description: Thread closed or client ID conflict } }
+  /api/v1/support/threads/{threadId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Assign, close, or reopen a support thread
+      parameters: [{ in: path, name: threadId, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateSupportThread' } } } }
+      responses: { '200': { description: Updated thread }, '403': { description: Support or admin role required }, '404': { description: Thread not found } }
+  /api/v1/me/marketing-preference:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the customer's explicit marketing consent and suppression state
+      responses: { '200': { description: Marketing preference }, '403': { description: Customer role required } }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Explicitly opt in or opt out of marketing email
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [optedIn], additionalProperties: false, properties: { optedIn: { type: boolean } } } } } }
+      responses: { '200': { description: Updated preference and suppression state }, '403': { description: Customer role required } }
+  /api/v1/marketing/unsubscribe:
+    get:
+      summary: Consume an opaque unsubscribe token from an email link
+      parameters: [{ in: query, name: token, required: true, schema: { type: string, minLength: 32, maxLength: 200 } }]
+      responses: { '200': { description: Unsubscribed idempotently }, '400': { description: Invalid token } }
+    post:
+      summary: Consume an opaque unsubscribe token from a one-click or API request
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [token], additionalProperties: false, properties: { token: { type: string, minLength: 32, maxLength: 200 } } } } } }
+      responses: { '200': { description: Unsubscribed idempotently }, '400': { description: Invalid token } }
+  /api/v1/admin/marketing/campaigns:
+    post:
+      security: [{ bearerAuth: [] }]
+      summary: Queue one basic campaign only for currently opted-in, unsuppressed recipients
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateMarketingCampaign' } } } }
+      responses: { '201': { description: Campaign and deduplicated email jobs queued }, '403': { description: Admin role required }, '503': { description: Unsubscribe URL is not configured } }
+  /api/v1/admin/marketing/campaigns/{campaignId}/deliveries:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Inspect persisted delivery and retry states for a campaign
+      parameters: [{ in: path, name: campaignId, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Delivery records }, '403': { description: Admin role required } }
+  /api/v1/admin/marketing/suppressions:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Add or lift a bounce, complaint, or manual marketing suppression
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SetEmailSuppression' } } } }
+      responses: { '200': { description: Suppression state updated }, '403': { description: Admin role required } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer }
@@ -582,6 +652,39 @@ components:
         status: { type: string, enum: [draft, active, inactive] }
         startsAt: { type: [string, 'null'], format: date-time }
         endsAt: { type: [string, 'null'], format: date-time }
+    CreateSupportThread:
+      type: object
+      required: [subject, message, clientId]
+      additionalProperties: false
+      properties:
+        subject: { type: string, minLength: 3, maxLength: 160 }
+        message: { type: string, minLength: 1, maxLength: 4000 }
+        clientId: { type: string, format: uuid, description: Stable client-generated ID used to deduplicate retries. }
+    CreateSupportMessage:
+      type: object
+      required: [body, clientId]
+      additionalProperties: false
+      properties:
+        body: { type: string, minLength: 1, maxLength: 4000 }
+        clientId: { type: string, format: uuid, description: Stable client-generated ID used to deduplicate retries. }
+    UpdateSupportThread:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [open, closed] }
+        assignedSupportUserId: { type: [string, 'null'], format: uuid }
+    CreateMarketingCampaign:
+      type: object
+      required: [subject, body]
+      additionalProperties: false
+      properties:
+        subject: { type: string, minLength: 3, maxLength: 200 }
+        body: { type: string, minLength: 10, maxLength: 10000 }
+    SetEmailSuppression:
+      oneOf:
+        - { type: object, required: [email, suppressed], additionalProperties: false, properties: { email: { type: string, format: email }, suppressed: { const: false } } }
+        - { type: object, required: [email, suppressed], additionalProperties: false, properties: { email: { type: string, format: email }, suppressed: { const: true }, reason: { type: string, enum: [bounce, complaint, manual], default: manual } } }
     Register:
       type: object
       required: [email, password, displayName]

@@ -1,0 +1,29 @@
+B11 POSTMAN CONTRACT EVIDENCE
+Date: 2026-10-30
+
+Artifact checks
+- postman/Legit_Hair_Backend.postman_collection.json: valid JSON
+- postman/Local.postman_environment.json: valid JSON
+- docs/api/openapi.yaml: valid YAML
+- Local parse result: Postman collection, environment, and OpenAPI parse successfully
+
+No-import manual sequence
+1. Keep the maintained repository collection already open; refresh/reopen it and select Local.
+2. Start the API against legit_hair_app_test with EMAIL_PROVIDER=fake and MARKETING_UNSUBSCRIBE_BASE_URL=http://127.0.0.1:3000/api/v1/marketing/unsubscribe.
+3. Run guarded migrations and seed.
+4. Send B02 Login seeded customer: expected 200; saves accessToken.
+5. Send B03 Login seeded admin: expected 200; saves adminAccessToken.
+6. Send B04 Login synthetic other seller: expected 200; saves otherSellerAccessToken.
+7. Send B10 Support login: expected 200; saves supportAccessToken.
+8. Send B11 Customer marketing opt-in: expected 200 and optedIn=true.
+9. Send B11 Create support thread: expected 201; generates b11ClientId and saves b11ThreadId/b11MessageId.
+10. Send B11 Read support history fallback: expected 200 and non-empty messages.
+11. Send B11 Cross-thread access - negative: expected 404.
+12. Send B11 Support HTTP reply: expected 201.
+13. Send B11 Create marketing campaign: expected 201; saves b11CampaignId.
+14. Send B11 Support campaign creation - negative: expected 403.
+15. Send B11 Customer marketing opt-out: expected 200 and optedIn=false.
+
+Owner execution
+- Not separately reported or claimed.
+- The owner explicitly accepted B11 on 2026-10-30; acceptance does not imply that this manual request sequence was executed.
