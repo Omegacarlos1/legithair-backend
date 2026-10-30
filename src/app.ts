@@ -26,19 +26,23 @@ import { createReportingRouter } from './reporting/router.js';
 import { createSupportRouter } from './support/router.js';
 import { createMarketingRouter } from './marketing/router.js';
 import { ZodError } from 'zod';
+import { configureTrustProxy, corsGuard, securityHeaders } from './http/security.js';
 
-interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; transferProvider?: TransferProvider; earningsPolicy?: EarningsPolicy; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string; marketingUnsubscribeBaseUrl?: string }
+interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; nodeEnv?: 'development' | 'test' | 'production'; trustProxyHops?: number; corsAllowedOrigins?: string[]; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; transferProvider?: TransferProvider; earningsPolicy?: EarningsPolicy; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string; marketingUnsubscribeBaseUrl?: string }
 
-export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), refundProvider = new UnconfiguredRefundProvider(), transferProvider = new UnconfiguredTransferProvider(), earningsPolicy = { payoutsEnabled: false }, fulfilmentPolicy = {}, paystackWebhookSecret, paystackCallbackUrl, marketingUnsubscribeBaseUrl }: AppDependencies): express.Express {
+export function createApp({ pool, logger, readinessTimeoutMs, nodeEnv = 'test', trustProxyHops = 0, corsAllowedOrigins = [], imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), refundProvider = new UnconfiguredRefundProvider(), transferProvider = new UnconfiguredTransferProvider(), earningsPolicy = { payoutsEnabled: false }, fulfilmentPolicy = {}, paystackWebhookSecret, paystackCallbackUrl, marketingUnsubscribeBaseUrl }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
-  app.use(express.json({ limit: '1mb', verify: (req, _res, buffer) => { (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer); } }));
+  configureTrustProxy(app, trustProxyHops);
+  app.use(securityHeaders(nodeEnv));
   app.use(pinoHttp({ logger, genReqId: (req, res) => {
     const supplied = req.headers['x-request-id'];
     const id = typeof supplied === 'string' && /^[A-Za-z0-9._-]{1,128}$/.test(supplied) ? supplied : randomUUID();
     res.setHeader('x-request-id', id);
     return id;
   } }));
+  app.use(corsGuard(corsAllowedOrigins));
+  app.use(express.json({ limit: '1mb', verify: (req, _res, buffer) => { (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer); } }));
   const healthy: RequestHandler = (req, res) => res.status(200).json({
     success: true, data: { status: 'ok' }, meta: { requestId: req.id }
   });
@@ -79,14 +83,24 @@ export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot =
     void next;
     const validation = error instanceof ZodError;
     const known = error instanceof AppError;
-    const status = validation ? 400 : known ? error.status : 500;
-    req.log.error({ err: error }, 'Request failed');
+    const bodyFailure = requestBodyFailure(error);
+    const status = validation ? 400 : known ? error.status : bodyFailure?.status ?? 500;
+    const code = validation ? 'VALIDATION_ERROR' : known ? error.code : bodyFailure?.code ?? 'INTERNAL_ERROR';
+    if (status >= 500) req.log.error({ err: error }, 'Request failed');
+    else req.log.warn({ status, code }, 'Request rejected');
     res.status(status).json({
       success: false,
-      error: { code: validation ? 'VALIDATION_ERROR' : known ? error.code : 'INTERNAL_ERROR', message: validation ? 'Request validation failed' : known ? error.message : 'An unexpected error occurred', ...(validation ? { details: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) } : known && error.details !== undefined ? { details: error.details } : {}) },
+      error: { code, message: validation ? 'Request validation failed' : known ? error.message : bodyFailure?.message ?? 'An unexpected error occurred', ...(validation ? { details: error.issues.map((issue) => ({ path: issue.path.join('.'), message: issue.message })) } : known && error.details !== undefined ? { details: error.details } : {}) },
       meta: { requestId: req.id }
     });
   };
   app.use(errorHandler);
   return app;
+}
+
+function requestBodyFailure(error: unknown): { status: 400 | 413; code: string; message: string } | undefined {
+  if (typeof error !== 'object' || error === null || !('type' in error)) return undefined;
+  if (error.type === 'entity.parse.failed') return { status: 400, code: 'INVALID_JSON', message: 'Request body contains invalid JSON' };
+  if (error.type === 'entity.too.large') return { status: 413, code: 'REQUEST_TOO_LARGE', message: 'Request body exceeds the allowed size' };
+  return undefined;
 }

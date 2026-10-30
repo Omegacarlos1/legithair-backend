@@ -8,12 +8,13 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 ## Current milestone
 
-CURRENT_MILESTONE: B11
-STATUS: ACCEPTED
+CURRENT_MILESTONE: B12
+STATUS: READY_FOR_REVIEW
 STARTED: 2026-10-30
 READY_FOR_REVIEW: 2026-10-30
-ACCEPTED: 2026-10-30
-B01–B11 are ACCEPTED. B12 is NOT_STARTED.
+ACCEPTED:
+B01–B11 are ACCEPTED. B12 is READY_FOR_REVIEW.
+B12 local hardening, deterministic regression, isolated MariaDB restore, provider-safe smoke and same-host synthetic 50-browser/10-checkout profiles are documented. Production MySQL, hosted deployment/capacity, provider accounts/evidence, business-policy approvals, object storage, sender/DNS, multi-instance Socket.IO, retention, named operations ownership, staff training, owner UAT, deployment authority and live-money authority remain open. B12 is not ACCEPTED until the owner explicitly accepts it.
 B03 was explicitly accepted with reduced scope. Dojah identity verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification remain open. Real seller approval remains disabled; B04 catalogue tests use explicitly synthetic approved-seller fixtures only and must not introduce a production approval bypass.
 B06 was explicitly accepted with fail-closed order policy configuration. Commission basis/rate, reservation lifetime and COD eligibility/reconciliation remain owner decisions; automated and owner-tested values are synthetic test inputs only. Production order creation must remain disabled until those choices are approved and configured.
 B07 was explicitly accepted on 2026-10-27 with local fake-Paystack and MariaDB evidence. Paystack test-mode account/dashboard webhook evidence and owner Postman execution remain open; no live key or live money movement is authorised. Late payments are recorded for controlled refund/manual review, whose execution belongs to B08.

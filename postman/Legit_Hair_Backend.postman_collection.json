@@ -1,5 +1,5 @@
 {
-  "info": { "name": "Legit Hair Backend B01-B09", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
+  "info": { "name": "Legit Hair Backend B01-B12", "description": "Backend smoke and milestone workflows. Use only guarded synthetic fixtures locally; provider and money-movement requests require separate test-mode authorization.", "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json" },
   "item": [
     {
       "name": "Health - positive",
@@ -548,6 +548,21 @@
       "name": "B11 Customer marketing opt-out",
       "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"optedIn\":false}" }, "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('opt out suppresses marketing', () => { const p=pm.response.json().data.preference; pm.expect(p.optedIn).to.eql(false); pm.expect(p.suppressed).to.eql(true); });" ] } }]
+    },
+    {
+      "name": "B12 Health hardening smoke",
+      "request": { "method": "GET", "header": [{ "key": "X-Request-Id", "value": "b12-health-smoke" }], "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('security headers and request id', () => { pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff'); pm.expect(pm.response.headers.get('X-Frame-Options')).to.eql('DENY'); pm.expect(pm.response.headers.get('X-Request-Id')).to.eql('b12-health-smoke'); });" ] } }]
+    },
+    {
+      "name": "B12 Ready database smoke",
+      "request": { "method": "GET", "url": "{{baseUrl}}/ready" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('database available', () => pm.expect(pm.response.json().data.database).to.eql('available'));" ] } }]
+    },
+    {
+      "name": "B12 Disallowed browser origin - negative",
+      "request": { "method": "GET", "header": [{ "key": "Origin", "value": "https://untrusted.example.test" }], "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('origin rejected', () => pm.expect(pm.response.json().error.code).to.eql('ORIGIN_NOT_ALLOWED'));" ] } }]
     }
   ]
 }

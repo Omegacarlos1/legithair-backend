@@ -33,9 +33,12 @@ export class OrderService {
   public constructor(private readonly pool: Pool, private readonly policy: OrderPolicy) {}
 
   public async createOrder(owner: OrderOwner, quoteId: string, paymentMethod: PaymentMethod, idempotencyKey: string): Promise<{ order: object; idempotentReplay: boolean; guestTrackingToken?: string }> {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       try { return await this.createOrderAttempt(owner, quoteId, paymentMethod, idempotencyKey); }
-      catch (error) { if (!isRetryableTransactionError(error) || attempt === 2) throw error; }
+      catch (error) {
+        if (!isRetryableTransactionError(error) || attempt === 4) throw error;
+        await retryDelay(attempt);
+      }
     }
     throw new AppError(503, 'ORDER_TRANSACTION_RETRY_EXHAUSTED', 'Order transaction could not be completed');
   }
@@ -220,3 +223,4 @@ function itemView(item: OrderItemRow): object {
 function jsonValue(value: string | object | null): string | null { return value === null ? null : typeof value === 'string' ? value : JSON.stringify(value); }
 function parsedJson(value: string | object | null): object | null { return value === null ? null : typeof value === 'string' ? JSON.parse(value) as object : value; }
 function isRetryableTransactionError(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && (error.code === 'ER_LOCK_DEADLOCK' || error.code === 'ER_LOCK_WAIT_TIMEOUT'); }
+function retryDelay(attempt: number): Promise<void> { return new Promise((resolve) => setTimeout(resolve, 5 * (2 ** attempt) + Math.floor(Math.random() * 10))); }

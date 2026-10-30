@@ -1,0 +1,93 @@
+{
+  "info": {
+    "name": "Legit Hair B12 Provider-Safe Smoke",
+    "description": "Read-focused staging smoke using guarded synthetic fixtures. It deliberately excludes payment/refund/payout provider calls and live money movement.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:3000" },
+    { "key": "fixturePassword", "value": "FixturePass123!" },
+    { "key": "customerToken", "value": "" },
+    { "key": "sellerToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "financeToken", "value": "" },
+    { "key": "supportToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Health and security headers",
+      "request": { "method": "GET", "header": [{ "key": "X-Request-Id", "value": "b12-provider-safe-smoke" }], "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('health 200', () => pm.response.to.have.status(200));", "pm.test('security headers', () => { pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff'); pm.expect(pm.response.headers.get('X-Frame-Options')).to.eql('DENY'); pm.expect(pm.response.headers.get('X-Request-Id')).to.eql('b12-provider-safe-smoke'); });"] } }]
+    },
+    {
+      "name": "Database readiness",
+      "request": { "method": "GET", "url": "{{baseUrl}}/ready" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('ready 200', () => pm.response.to.have.status(200));", "pm.test('database available', () => pm.expect(pm.response.json().data.database).to.eql('available'));"] } }]
+    },
+    {
+      "name": "Disallowed browser origin",
+      "request": { "method": "GET", "header": [{ "key": "Origin", "value": "https://untrusted.example.test" }], "url": "{{baseUrl}}/health" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('origin rejected 403', () => pm.response.to.have.status(403));", "pm.test('safe origin error', () => pm.expect(pm.response.json().error.code).to.eql('ORIGIN_NOT_ALLOWED'));"] } }]
+    },
+    {
+      "name": "Login customer fixture",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"customer.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer login 200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('customerToken', pm.response.json().data.tokens.accessToken);"] } }]
+    },
+    {
+      "name": "Read current customer",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/me" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer profile 200', () => pm.response.to.have.status(200));", "pm.test('customer role', () => pm.expect(pm.response.json().data.user.roles).to.include('customer'));"] } }]
+    },
+    {
+      "name": "Browse published catalogue",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products?limit=20&sort=popularity" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('products 200', () => pm.response.to.have.status(200));", "pm.test('products envelope', () => pm.expect(pm.response.json().success).to.eql(true));"] } }]
+    },
+    {
+      "name": "Read delivery options",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/delivery-options" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('delivery options 200', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "Login seller fixture",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"seller.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('seller login 200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('sellerToken', pm.response.json().data.tokens.accessToken);"] } }]
+    },
+    {
+      "name": "Read seller catalogue",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{sellerToken}}" }], "url": "{{baseUrl}}/api/v1/seller/products" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('seller catalogue 200', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "Login admin fixture",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"admin.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('admin login 200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('adminToken', pm.response.json().data.tokens.accessToken);"] } }]
+    },
+    {
+      "name": "Read moderation queue",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reviews?limit=20" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('moderation queue 200', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "Login finance fixture",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"finance.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('finance login 200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('financeToken', pm.response.json().data.tokens.accessToken);"] } }]
+    },
+    {
+      "name": "Read sales reconciliation report",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/sales?limit=20" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('sales report 200', () => pm.response.to.have.status(200));", "pm.test('sales report identified', () => pm.expect(pm.response.json().data.report).to.eql('sales'));"] } }]
+    },
+    {
+      "name": "Login support fixture",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"support.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('support login 200', () => pm.response.to.have.status(200));", "pm.collectionVariables.set('supportToken', pm.response.json().data.tokens.accessToken);"] } }]
+    },
+    {
+      "name": "Read support queue",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{supportToken}}" }], "url": "{{baseUrl}}/api/v1/support/threads?limit=20" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('support queue 200', () => pm.response.to.have.status(200));"] } }]
+    }
+  ]
+}
