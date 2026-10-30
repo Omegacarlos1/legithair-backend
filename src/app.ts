@@ -23,11 +23,13 @@ import type { EarningsPolicy } from './payouts/types.js';
 import { createReviewRouter } from './reviews/router.js';
 import { createMerchandisingRouter } from './merchandising/router.js';
 import { createReportingRouter } from './reporting/router.js';
+import { createSupportRouter } from './support/router.js';
+import { createMarketingRouter } from './marketing/router.js';
 import { ZodError } from 'zod';
 
-interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; transferProvider?: TransferProvider; earningsPolicy?: EarningsPolicy; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string }
+interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; transferProvider?: TransferProvider; earningsPolicy?: EarningsPolicy; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string; marketingUnsubscribeBaseUrl?: string }
 
-export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), refundProvider = new UnconfiguredRefundProvider(), transferProvider = new UnconfiguredTransferProvider(), earningsPolicy = { payoutsEnabled: false }, fulfilmentPolicy = {}, paystackWebhookSecret, paystackCallbackUrl }: AppDependencies): express.Express {
+export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot = 'storage/product-images', imageMaxBytes = 5 * 1024 * 1024, guestBasketTtlDays = 30, checkoutQuoteTtlSeconds = 900, orderPolicy = { codEnabled: false }, paymentProvider = new UnconfiguredPaymentProvider(), refundProvider = new UnconfiguredRefundProvider(), transferProvider = new UnconfiguredTransferProvider(), earningsPolicy = { payoutsEnabled: false }, fulfilmentPolicy = {}, paystackWebhookSecret, paystackCallbackUrl, marketingUnsubscribeBaseUrl }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.use(express.json({ limit: '1mb', verify: (req, _res, buffer) => { (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buffer); } }));
@@ -70,6 +72,8 @@ export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot =
   app.use('/api/v1', createReviewRouter(pool));
   app.use('/api/v1', createMerchandisingRouter(pool));
   app.use('/api/v1', createReportingRouter(pool));
+  app.use('/api/v1', createSupportRouter(pool));
+  app.use('/api/v1', createMarketingRouter(pool, marketingUnsubscribeBaseUrl));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;
