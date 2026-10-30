@@ -191,6 +191,17 @@ export class BasketService {
   }
 
   public async createQuote(owner: BasketOwner, input: QuoteInput, idempotencyKey: string): Promise<{ quote: object; idempotentReplay: boolean }> {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try { return await this.createQuoteAttempt(owner, input, idempotencyKey); }
+      catch (error) {
+        if (!isRetryableTransactionError(error) || attempt === 4) throw error;
+        await retryDelay(attempt);
+      }
+    }
+    throw new AppError(503, 'QUOTE_TRANSACTION_RETRY_EXHAUSTED', 'Checkout quote could not be created');
+  }
+
+  private async createQuoteAttempt(owner: BasketOwner, input: QuoteInput, idempotencyKey: string): Promise<{ quote: object; idempotentReplay: boolean }> {
     const connection = await this.pool.getConnection();
     let quoteId: string;
     let replay = false;
@@ -350,3 +361,5 @@ function pickupView(row: PickupRow): object { return { id: row.id, name: row.nam
 function rateView(row: RateRow): object { return { currency: row.currency, ngnMinorPerUsdMinor: moneyValue(row.ngn_minor_per_currency_minor), updatedAt: row.updated_at, settlementCurrency: 'NGN' }; }
 function addUpdate(sets: string[], values: unknown[], column: string, value: unknown): void { if (value !== undefined) { sets.push(`${column} = ?`); values.push(value); } }
 function isDuplicate(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ER_DUP_ENTRY'; }
+function isRetryableTransactionError(error: unknown): boolean { return typeof error === 'object' && error !== null && 'code' in error && (error.code === 'ER_LOCK_DEADLOCK' || error.code === 'ER_LOCK_WAIT_TIMEOUT'); }
+function retryDelay(attempt: number): Promise<void> { return new Promise((resolve) => setTimeout(resolve, 5 * (2 ** attempt) + Math.floor(Math.random() * 10))); }

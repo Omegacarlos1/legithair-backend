@@ -6,4 +6,5 @@ coverage/
 !.env.example
 *.log
 storage/
+postman/performance/.generated-*.json
 .DS_Store

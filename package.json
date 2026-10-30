@@ -31,7 +31,10 @@
     "payouts:verify-provider": "tsx scripts/verify-paystack-transfer.ts",
     "email:work-once": "tsx scripts/process-email-once.ts",
     "email:worker": "tsx scripts/process-email-worker.ts",
-    "email:verify-provider": "tsx scripts/verify-gmail.ts"
+    "email:verify-provider": "tsx scripts/verify-gmail.ts",
+    "ops:check": "tsx scripts/check-operations.ts",
+    "backup:verify": "tsx scripts/verify-backup-restore.ts",
+    "performance:prepare": "tsx scripts/prepare-performance.ts"
   },
   "dependencies": {
     "argon2": "0.45.1",
