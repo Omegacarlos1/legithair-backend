@@ -24,3 +24,13 @@ export function requireRole(role: Role): RequestHandler {
     next();
   };
 }
+
+export function requireAnyRole(roles: Role[]): RequestHandler {
+  return (req, _res, next): void => {
+    if (!req.authUser || !roles.some((role) => req.authUser!.roles.includes(role))) {
+      next(new AppError(403, 'FORBIDDEN', `One of these roles is required: ${roles.join(', ')}`));
+      return;
+    }
+    next();
+  };
+}

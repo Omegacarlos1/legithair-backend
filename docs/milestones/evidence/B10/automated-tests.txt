@@ -1,0 +1,52 @@
+B10 automated verification evidence
+Final rerun: 2026-10-29 (Africa/Lagos)
+Branch: feature/B10-reviews-merchandising-reporting
+Runtime: Node.js v24.19.0, npm 11.17.0
+
+STATIC CHECKS
+
+- `npm run lint`: PASS, exit 0, 0 errors
+- `npm run typecheck`: PASS, exit 0, 0 errors
+- `npm run build`: PASS, exit 0
+- Postman collection and environment JSON parse: PASS, exit 0
+- OpenAPI YAML parse through installed `js-yaml`: PASS, exit 0
+
+UNIT AND SUPERTEST API CHECKS
+
+The ordinary tsx npm wrappers remain host-blocked before discovery by `uv_os_get_passwd`/`ENOMEM`. The established process-local `os.userInfo` shim loaded `tsx/cjs` and ran the same repository files.
+
+Command:
+`node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/unit/**/*.test.ts','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"`
+
+Result: PASS, exit 0, 43 passing, 0 failing, 0 skipped.
+Breakdown: 20 unit and 23 Supertest API assertions.
+
+New B10 coverage checks formula-safe CSV encoding, unauthenticated review creation, customer rejection from admin review queues/reports and support rejection from finance reports.
+
+DATABASE INTEGRATION CHECKS
+
+Environment: `NODE_ENV=test`, `DATABASE_NAME=legit_hair_app_test`, `EMAIL_PROVIDER=fake`
+Server: MariaDB 10.4.32 (not production MySQL)
+
+Focused command (PowerShell):
+`$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/reviews-reporting.test.ts']; require('./node_modules/mocha/bin/mocha.js')"`
+
+Focused result: PASS, exit 0, 5 passing in 5 seconds.
+
+Full command (PowerShell):
+`$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"`
+
+Full result: PASS, exit 0, 61 passing in 52 seconds, 0 failing, 0 skipped.
+
+B10 scenarios establish that only a settled completed purchaser can review; idempotent replay creates no duplicate; pending/rejected reviews remain hidden; admin moderation controls publication; a first confirmed COD collection increments paid units exactly once; related/popular ordering follows paid units; only active banners are public; support cannot manage banners or read financial reports; finance can reconcile gross sales, refunds, commissions, earnings and payout paid-ledger totals; and CSV exports neutralise a formula-like product name.
+
+TEST-SCHEMA RECOVERY
+
+An interrupted earlier full-suite process left the disposable schema partially rolled back. The target was resolved as exactly `legit_hair_app_test`, checked for the required `_test` suffix, dropped and recreated, then migrated from empty. No development or production database was reset. The focused and full clean reruns above passed.
+
+FINAL TOTAL
+
+- Unit: 20 passing
+- Supertest API: 23 passing
+- MariaDB integration: 61 passing
+- Total: 104 passing, 0 application failures, 0 skipped

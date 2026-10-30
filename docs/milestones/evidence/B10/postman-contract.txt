@@ -1,0 +1,28 @@
+B10 Postman contract evidence
+Date: 2026-10-29 (Africa/Lagos)
+
+ARTIFACT CHECK
+
+- `postman/Legit_Hair_Backend.postman_collection.json`: JSON parse PASS
+- `postman/Local.postman_environment.json`: JSON parse PASS
+- Owner manual execution: NOT RUN / NOT CLAIMED
+- No collection file needs to be imported when the maintained repository collection is already open; refresh it and use the Local environment.
+
+MANUAL ORDER
+
+1. Start MariaDB, migrate, seed the isolated `_test` schema, start the API on `http://127.0.0.1:3000`, and select the Local Postman environment.
+2. Complete or retain the prior synthetic paid/fulfilled B06-B08 flow so `b08ReturnOrderItemId` and the associated product ID identify an eligible purchase.
+3. Log in as the customer and run `B10 Submit purchased-product review`: expect 201; replaying the same idempotency key returns 200 without another review.
+4. Log in as the other customer and run `B10 Other customer review - negative`: expect 403.
+5. Log in as admin; run publish, public read, reject and hidden-read requests: expect 200 and zero public rows after rejection.
+6. Run category related products: expect 200 and no source product in the returned category matches.
+7. As admin create an active banner: expect 201. Read banners publicly: expect 200 and the created banner.
+8. Log in as finance and run sales, refunds, commission, earnings, payout and product CSV reports: expect 200 and string minor-unit totals.
+9. Log in as support and run the negative financial report request: expect 403.
+10. Inspect the CSV response: formula-like cells are quoted and prefixed with an apostrophe.
+
+ASSERTION COVERAGE
+
+The maintained requests assert expected status codes, save B10 review/banner IDs, check moderation visibility, confirm support/finance separation and verify CSV content type/formula safety. Environment additions are placeholders only: `supportEmail`, `supportAccessToken`, `b10ReviewId` and `b10BannerId`.
+
+API target: local live backend, not a Postman mock. JSON parsing proves artifact validity, not live owner execution.

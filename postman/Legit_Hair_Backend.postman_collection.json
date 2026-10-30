@@ -397,7 +397,7 @@
     {
       "name": "B09 Finance login",
       "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{financeEmail}}\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
-      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('financeAccessToken', b.data.accessToken);", "pm.test('finance token issued', () => pm.expect(b.data.accessToken).to.be.a('string'));" ] } }]
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('financeAccessToken', b.data.tokens.accessToken);", "pm.test('finance token issued', () => pm.expect(b.data.tokens.accessToken).to.be.a('string'));" ] } }]
     },
     {
       "name": "B09 Seller earnings",
@@ -423,6 +423,91 @@
       "name": "B09 Finance reads payout",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/payouts/{{payoutId}}" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('same payout returned', () => pm.expect(pm.response.json().data.payout.id).to.eql(pm.environment.get('payoutId')));" ] } }]
+    },
+    {
+      "name": "B10 Support login",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{supportEmail}}\",\"password\":\"{{fixturePassword}}\"}" }, "url": "{{baseUrl}}/api/v1/auth/login" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "const b=pm.response.json(); pm.environment.set('supportAccessToken', b.data.tokens.accessToken);", "pm.test('support role present', () => pm.expect(b.data.user.roles).to.include('support'));" ] } }]
+    },
+    {
+      "name": "B10 Submit purchased-product review",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Idempotency-Key", "value": "postman-b10-review-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderItemId\":\"{{b08ReturnOrderItemId}}\",\"rating\":5,\"title\":\"Excellent quality\",\"body\":\"The purchased synthetic product matched its description.\"}" }, "url": "{{baseUrl}}/api/v1/reviews" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b10ReviewId', b.data.review.id);", "pm.test('review awaits moderation', () => pm.expect(b.data.review.status).to.eql('pending'));" ] } }]
+    },
+    {
+      "name": "B10 Other customer review - negative",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{otherSellerAccessToken}}" }, { "key": "Idempotency-Key", "value": "postman-b10-review-other-001" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"orderItemId\":\"{{b08ReturnOrderItemId}}\",\"rating\":5,\"title\":\"Not my purchase\",\"body\":\"This account did not purchase the selected order item.\"}" }, "url": "{{baseUrl}}/api/v1/reviews" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('purchase required', () => pm.expect(pm.response.json().error.code).to.eql('REVIEW_PURCHASE_REQUIRED'));" ] } }]
+    },
+    {
+      "name": "B10 Publish review",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"published\",\"reason\":\"Verified purchase and appropriate content\"}" }, "url": "{{baseUrl}}/api/v1/admin/reviews/{{b10ReviewId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('published', () => pm.expect(pm.response.json().data.review.status).to.eql('published'));" ] } }]
+    },
+    {
+      "name": "B10 Read published product reviews",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/products/{{b05ProductOneId}}/reviews" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('published review visible', () => pm.expect(pm.response.json().data.reviews.map(r => r.id)).to.include(pm.environment.get('b10ReviewId')));" ] } }]
+    },
+    {
+      "name": "B10 Reject published review",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"status\":\"rejected\",\"reason\":\"Synthetic moderation visibility check\"}" }, "url": "{{baseUrl}}/api/v1/admin/reviews/{{b10ReviewId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('rejected', () => pm.expect(pm.response.json().data.review.status).to.eql('rejected'));" ] } }]
+    },
+    {
+      "name": "B10 Rejected review hidden",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/products/{{b05ProductOneId}}/reviews" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('rejected review absent', () => pm.expect(pm.response.json().data.reviews.map(r => r.id)).not.to.include(pm.environment.get('b10ReviewId')));" ] } }]
+    },
+    {
+      "name": "B10 Category related products",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/products/{{b05ProductOneId}}/related" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('source product excluded', () => pm.expect(pm.response.json().data.products.map(p => p.id)).not.to.include(pm.environment.get('b05ProductOneId')));" ] } }]
+    },
+    {
+      "name": "B10 Create active banner",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{adminAccessToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"title\":\"Synthetic B10 Banner\",\"subtitle\":\"Local review only\",\"imageUrl\":\"/images/synthetic-b10-banner.png\",\"targetUrl\":\"/products\",\"position\":1,\"status\":\"active\"}" }, "url": "{{baseUrl}}/api/v1/admin/banners" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));", "const b=pm.response.json(); pm.environment.set('b10BannerId', b.data.banner.id);", "pm.test('active banner created', () => pm.expect(b.data.banner.status).to.eql('active'));" ] } }]
+    },
+    {
+      "name": "B10 Read active banners",
+      "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/api/v1/banners" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('active banner visible', () => pm.expect(pm.response.json().data.banners.map(b => b.id)).to.include(pm.environment.get('b10BannerId')));" ] } }]
+    },
+    {
+      "name": "B10 Finance sales report",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/sales" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('separate gross definition', () => { const b=pm.response.json().data; pm.expect(b.report).to.eql('sales'); pm.expect(b.definition).to.include('before refunds'); pm.expect(b.totals.grossSalesMinor).to.be.a('string'); });" ] } }]
+    },
+    {
+      "name": "B10 Finance reconciliation reports",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/refunds" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('refund report identified', () => pm.expect(pm.response.json().data.report).to.eql('refunds'));" ] } }]
+    },
+    {
+      "name": "B10 Finance commission report",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/commissions" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('commission report identified', () => pm.expect(pm.response.json().data.report).to.eql('commissions'));" ] } }]
+    },
+    {
+      "name": "B10 Finance seller earnings report",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/earnings" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('earnings report identified', () => pm.expect(pm.response.json().data.report).to.eql('earnings'));" ] } }]
+    },
+    {
+      "name": "B10 Finance payout report",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/payouts" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('payout report identified', () => pm.expect(pm.response.json().data.report).to.eql('payouts'));" ] } }]
+    },
+    {
+      "name": "B10 Support financial report - negative",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{supportAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/sales" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 403', () => pm.response.to.have.status(403));", "pm.test('finance and support remain distinct', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));" ] } }]
+    },
+    {
+      "name": "B10 Products CSV export",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{financeAccessToken}}" }], "url": "{{baseUrl}}/api/v1/admin/reports/products?format=csv" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));", "pm.test('CSV attachment', () => { pm.expect(pm.response.headers.get('Content-Type')).to.include('text/csv'); pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment'); });" ] } }]
     }
   ]
 }

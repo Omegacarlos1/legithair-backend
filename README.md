@@ -1,6 +1,6 @@
 # Legit Hair backend
 
-B01-B09 provide the Express 5 and TypeScript backend foundation through fulfilment, refunds, seller earnings, and payout reconciliation.
+B01-B10 provide the Express 5 and TypeScript backend foundation through fulfilment, payouts, purchase-linked reviews, merchandising, and auditable reports.
 
 ## Local setup with XAMPP MariaDB
 
@@ -16,7 +16,7 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run lint`, `npm run typecheck`, `npm test`
 - `npm run test:integration` (requires an isolated MariaDB test schema)
 - `npm run migrate`, `npm run migrate:down`
-- `npm run seed:test` (creates guarded synthetic B02-B09 fixtures, including finance and two test-only approved sellers)
+- `npm run seed:test` (creates guarded synthetic B02-B10 fixtures, including finance, support, and two test-only approved sellers)
 - `npm run orders:release-expired` (idempotently releases due B06 reservations; schedule this in deployed environments)
 - `npm run payments:reconcile` (verifies persisted pending Paystack references; alerts with a non-zero exit on provider failures)
 - `npm run payments:verify-provider` (explicit Paystack test-mode acceptance; refuses live keys)
@@ -94,3 +94,9 @@ Paystack refunds are persisted before the provider call and reconciled by provid
 Seller earnings use the immutable suborder net/commission snapshot and exclude company-retained delivery fees. Eligible funds enter an append-only held ledger, then release to available after `EARNINGS_HOLD_DAYS`. This setting has no default. `PAYOUTS_ENABLED` separately defaults to false.
 
 The `finance` role binds an already verified Paystack recipient code and approves NGN payouts. Available earnings are allocated and reserved before the provider call. Timeouts remain uncertain and reconciliation verifies the original durable reference; failure or reversal restores availability once. Processed refunds consume their source earning lot and put previously paid exposure into a recoverable balance without making available earnings negative. See `docs/api/seller-earnings-payouts.md` and ADR 0010. No live money movement is authorised.
+
+## B10 reviews, merchandising, and reporting
+
+Authenticated customers can submit one idempotent review only for an item in their own settled, fulfilled order. Reviews remain pending until an admin publishes or rejects them; only published reviews are public. Category-related products remain popularity ordered, and both verified Paystack settlement and confirmed COD collection increment `paid_units_sold` exactly once.
+
+Admins manage audited homepage banners and review moderation. Admin and finance roles can read separately defined sales, products, refunds, commissions, seller-earnings, and payout reports; support cannot access financial reports or content administration. CSV exports quote every cell and prefix formula-like values. Report money totals are decimal strings in NGN minor units to preserve aggregate precision. See `docs/api/reviews-merchandising-reporting.md` and ADR 0011.

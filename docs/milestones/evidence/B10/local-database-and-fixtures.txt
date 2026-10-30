@@ -1,0 +1,28 @@
+B10 local database and fixture evidence
+Date: 2026-10-29 (Africa/Lagos)
+
+DATABASE
+
+- Local engine: XAMPP MariaDB 10.4.32
+- Disposable integration schema: `legit_hair_app_test`
+- Development schema: `legit_hair_app`
+- Migration 013 applied successfully to both the clean disposable schema and development schema.
+- This is local MariaDB evidence only; production MySQL compatibility was not tested.
+
+DEVELOPMENT MIGRATION COMMAND
+
+`node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./src/database/migrate.ts').migrate('up').catch(e=>{console.error(e.message);process.exit(1)})"`
+
+Result: PASS. `Database connected successfully (legit_hair_app)` and `Migrations applied successfully`.
+
+GUARDED TEST SEED COMMAND
+
+`$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./scripts/seed-test.ts').seedTestFixtures().catch(e=>{console.error(e.message);process.exit(1)})"`
+
+Result: PASS. Seeded six synthetic users, two synthetic approved sellers and two synthetic checkout products. The sixth user is `support.fixture@example.test` with only the support role. The seed refuses non-test mode or a database name without the `_test` suffix.
+
+No secrets or live personal data are present in repository fixtures. The documented fixture password is synthetic and local-test only.
+
+ROLLBACK RISK
+
+Migration 013 down drops all reviews, moderation events, banners and banner audit events and removes support-role assignments. Before any production rollback, export affected records and define an audited recovery plan. Production MySQL execution remains open.

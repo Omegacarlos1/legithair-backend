@@ -20,6 +20,9 @@ import { UnconfiguredTransferProvider, type TransferProvider } from './payouts/p
 import { EarningsPayoutService } from './payouts/service.js';
 import { createPayoutRouter } from './payouts/router.js';
 import type { EarningsPolicy } from './payouts/types.js';
+import { createReviewRouter } from './reviews/router.js';
+import { createMerchandisingRouter } from './merchandising/router.js';
+import { createReportingRouter } from './reporting/router.js';
 import { ZodError } from 'zod';
 
 interface AppDependencies { pool: Pool; logger: Logger; readinessTimeoutMs: number; imageStorageRoot?: string; imageMaxBytes?: number; guestBasketTtlDays?: number; checkoutQuoteTtlSeconds?: number; orderPolicy?: OrderPolicy; paymentProvider?: PaymentProvider; refundProvider?: RefundProvider; transferProvider?: TransferProvider; earningsPolicy?: EarningsPolicy; fulfilmentPolicy?: FulfilmentPolicy; paystackWebhookSecret?: string; paystackCallbackUrl?: string }
@@ -64,6 +67,9 @@ export function createApp({ pool, logger, readinessTimeoutMs, imageStorageRoot =
   app.use('/api/v1', createPaymentRouter(pool, paymentProvider, paystackWebhookSecret, paystackCallbackUrl, (event, rawBody) => fulfilment.handleRefundWebhook(event, rawBody), (event, rawBody) => payouts.handleWebhook(event, rawBody)));
   app.use('/api/v1', createFulfilmentRouter(pool, fulfilment));
   app.use('/api/v1', createPayoutRouter(pool, payouts));
+  app.use('/api/v1', createReviewRouter(pool));
+  app.use('/api/v1', createMerchandisingRouter(pool));
+  app.use('/api/v1', createReportingRouter(pool));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {
     void next;
