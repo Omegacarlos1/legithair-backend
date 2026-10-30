@@ -5,7 +5,7 @@ import { migrate } from '../../src/database/migrate.js';
 
 describe('MariaDB migrations', function () {
   this.timeout(40_000);
-  it('apply cleanly and create the B01-B10 tables', async () => {
+  it('apply cleanly and create the B01-B11 tables', async () => {
     process.env.EMAIL_PROVIDER = 'fake';
     const config = loadConfig();
     assert.equal(config.NODE_ENV, 'test');
@@ -14,7 +14,7 @@ describe('MariaDB migrations', function () {
     await migrate('up');
     const connection = await mysql.createConnection({ host: config.DATABASE_HOST, port: config.DATABASE_PORT, user: config.DATABASE_USER, password: config.DATABASE_PASSWORD, database: config.DATABASE_NAME });
     try {
-      const expected = ['addresses', 'auth_tokens', 'banner_audit_events', 'basket_items', 'baskets', 'categories', 'checkout_quote_delivery_allocations', 'checkout_quote_items', 'checkout_quotes', 'cod_collections', 'delivery_config_audit_events', 'delivery_zones', 'durable_jobs', 'fulfilment_events', 'homepage_banners', 'indicative_exchange_rates', 'inventory_reservations', 'order_items', 'order_status_events', 'orders', 'outbox_events', 'paid_receipts', 'payment_ledger_entries', 'payment_review_cases', 'payment_webhook_events', 'payments', 'payout_allocations', 'payout_webhook_events', 'payouts', 'pickup_locations', 'product_audit_events', 'product_images', 'product_reviews', 'products', 'refunds', 'return_request_items', 'return_requests', 'review_moderation_events', 'seller_audit_events', 'seller_earning_lots', 'seller_ledger_entries', 'seller_payout_recipients', 'seller_refund_adjustments', 'seller_suborders', 'sellers', 'stock_adjustments', 'user_roles', 'users'];
+      const expected = ['addresses', 'auth_tokens', 'banner_audit_events', 'basket_items', 'baskets', 'categories', 'checkout_quote_delivery_allocations', 'checkout_quote_items', 'checkout_quotes', 'cod_collections', 'delivery_config_audit_events', 'delivery_zones', 'durable_jobs', 'email_deliveries', 'email_delivery_attempts', 'email_suppressions', 'fulfilment_events', 'homepage_banners', 'indicative_exchange_rates', 'inventory_reservations', 'marketing_campaigns', 'marketing_preferences', 'marketing_unsubscribe_tokens', 'order_items', 'order_status_events', 'orders', 'outbox_events', 'paid_receipts', 'payment_ledger_entries', 'payment_review_cases', 'payment_webhook_events', 'payments', 'payout_allocations', 'payout_webhook_events', 'payouts', 'pickup_locations', 'product_audit_events', 'product_images', 'product_reviews', 'products', 'refunds', 'return_request_items', 'return_requests', 'review_moderation_events', 'seller_audit_events', 'seller_earning_lots', 'seller_ledger_entries', 'seller_payout_recipients', 'seller_refund_adjustments', 'seller_suborders', 'sellers', 'stock_adjustments', 'support_messages', 'support_threads', 'user_roles', 'users'];
       const [rows] = await connection.query<Array<RowDataPacket & { table_name: string }>>(`SELECT table_name FROM information_schema.tables WHERE table_schema = ? AND table_name IN (${expected.map(() => '?').join(', ')})`, [config.DATABASE_NAME, ...expected]);
       assert.deepEqual(rows.map((row) => row.table_name).sort(), expected);
     } finally { await connection.end(); }

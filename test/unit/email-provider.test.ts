@@ -42,4 +42,16 @@ describe('Gmail email provider', () => {
     assert.equal(messages[0]!.subject, 'Your Legit Hair receipt LH-RECEIPT-1');
     assert.match(String(messages[0]!.text), /NGN 1250\.50/);
   });
+
+  it('renders marketing content with explicit unsubscribe headers', async () => {
+    const messages: SendMailOptions[] = [];
+    const provider = new GmailEmailProvider(
+      { user: 'sender@gmail.com', appPassword: 'abcdefghijklmnop', fromName: 'Legit Hair' },
+      { sendMail: async (message: SendMailOptions): Promise<unknown> => { messages.push(message); return {}; }, verify: async (): Promise<unknown> => true }
+    );
+    await provider.send({ to: 'customer@example.test', template: 'marketing', subject: 'New styles', body: 'Synthetic promotion', unsubscribeUrl: 'https://api.example.test/api/v1/marketing/unsubscribe?token=test-token' });
+    assert.equal(messages[0]!.subject, 'New styles');
+    assert.match(String(messages[0]!.text), /Unsubscribe:/);
+    assert.deepEqual(messages[0]!.headers, { 'List-Unsubscribe': '<https://api.example.test/api/v1/marketing/unsubscribe?token=test-token>', 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' });
+  });
 });
