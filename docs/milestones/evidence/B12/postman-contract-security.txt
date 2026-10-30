@@ -1,0 +1,35 @@
+B12 Postman, contract, dependency, and security evidence
+Date: 2026-10-30
+
+Provider-safe smoke command
+postman collection run postman/B12_Smoke.postman_collection.json --no-report-events --timeout-request 5000
+
+Result:
+- 15 requests, 15 scripts, 21 assertions
+- 15/15 requests and 21/21 assertions passed
+- average 80 ms, minimum 8 ms, maximum 200 ms
+- checked health/readiness, request/security headers, denied origin, customer profile, catalogue, delivery options, seller catalogue, admin moderation, finance sales report, and support queue
+- used only local guarded synthetic fixtures; no provider or money-movement request ran
+- Postman feature-flag fetch reported an offline AggregateError, but the local collection completed with exit 0 and was not published
+
+Artifact parsing:
+- Main B01-B12 collection, Local environment, B12 smoke, browsing profile, and checkout profile parsed as JSON.
+- `postman spec lint docs/api/openapi.yaml --issueType syntax --no-report-events` initially found 21 baseline inline-YAML response errors and one missing path parameter. These were corrected.
+- Final OpenAPI 3.1 syntax lint: no issues found, exit 0.
+
+Dependency review:
+- `npm audit --audit-level=low` required registry/cache access outside the repository sandbox.
+- Final result: found 0 vulnerabilities, exit 0.
+- Versions remain pinned in `package-lock.json`; no dependency was changed during B12.
+
+Hardening reviewed and verified:
+- exact-origin CORS and rejected-origin envelope;
+- HSTS in production plus nosniff, frame denial, referrer, CSP, and permissions headers;
+- explicit trusted-proxy hop count;
+- normalized 400 malformed JSON and 413 oversized JSON;
+- routine client failures logged without error objects/request bodies;
+- production config fails closed for empty DB password/origins, fake email, and insecure configured callback/unsubscribe URLs;
+- existing auth/provider rate limits, signed webhook verification, upload signature/size/path controls, role/ownership checks, idempotency, audit/status events, and secret redaction were reviewed through code and regression evidence.
+
+Production penetration testing, WAF/rate-limit tuning, object storage, hosted monitoring, MySQL, provider dashboards, and infrastructure review were not run.
+

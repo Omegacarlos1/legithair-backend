@@ -1,0 +1,32 @@
+B12 automated verification
+Date: 2026-10-30
+
+Static/build commands
+- npm run lint
+- npm run typecheck
+- npm run build
+Final result: all exit 0.
+
+Ordinary wrapper diagnostic
+- npm run test:unit and npm run test:api were attempted first.
+- Both were blocked before test discovery by this Windows host's established `uv_os_get_passwd` / ENOMEM failure inside tsx.
+- The same unchanged test globs were executed through the established process-local os.userInfo shim below.
+
+Unit command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/unit/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result: 25 passing, 0 failing, 0 skipped.
+
+API command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result: 28 passing, 0 failing, 0 skipped.
+
+Integration command
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; $env:PAYSTACK_SECRET_KEY=''; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result after the transaction retry change: 64 passing in 53 seconds, 0 failing, 0 skipped. The suite repeatedly rolled all migrations down/up on `legit_hair_app_test`.
+
+Socket command
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; $env:PAYSTACK_SECRET_KEY=''; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/socket/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Final result: 2 passing in 4 seconds, 0 failing, 0 skipped.
+
+Final deterministic total: 119 passing, 0 failing, 0 skipped.
+

@@ -1,0 +1,23 @@
+B12 database and recovery evidence
+Date: 2026-10-30
+
+Engine queried from the isolated source database:
+{"version":"10.4.32-MariaDB","comment":"mariadb.org binary distribution","time_zone":"SYSTEM"}
+
+The first restore attempt used the least-privilege `legit_local` runtime identity and correctly failed to create `legit_hair_b12_restore_test`. The verifier was changed to keep the source/read identity separate from an explicit restore identity. The final local rehearsal used the XAMPP administrative identity only for the fixed isolated restore target; the application runtime identity was not elevated.
+
+Final command (credentials omitted; values came from the local uncommitted environment):
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; $env:PAYSTACK_SECRET_KEY=''; $env:BACKUP_RESTORE_DATABASE_USER='root'; node -e "... verifyBackupRestore() ..."
+
+Final output:
+Database connected successfully (legit_hair_b12_restore_test)
+Migrations rolled back successfully
+Database connected successfully (legit_hair_b12_restore_test)
+Migrations applied successfully
+{"source":"legit_hair_app_test","restoredTo":"legit_hair_b12_restore_test","dumpBytes":98383,"sha256":"66c09db119ddbbd7747cecc5373d0f354d193f2fa00b775a1203fc28f476acd1","tables":{"schema_migrations":14,"users":9,"orders":0,"support_messages":5,"email_deliveries":0},"rollbackForwardCycle":"passed","finalRestore":"passed"}
+
+The temporary dump was deleted by the verifier. This is MariaDB/XAMPP evidence, not production MySQL or hosted backup/RTO evidence.
+
+Operations check before load preparation:
+{"healthy":true,"email":{"due":0,"oldestDueSeconds":0,"staleProcessing":0},"supportOutbox":{"due":0,"oldestDueSeconds":0,"staleLocks":0},"reservations":{"expiredActive":0},"refunds":{"needsAttention":0},"payouts":{"uncertain":0},"failures":[]}
+

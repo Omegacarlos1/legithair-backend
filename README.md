@@ -1,6 +1,6 @@
 # Legit Hair backend
 
-B01-B11 provide the Express 5 and TypeScript backend foundation through fulfilment, payouts, purchase-linked reviews, merchandising, auditable reports, persistent support chat, and consent-controlled notifications.
+B01-B11 provide the accepted Express 5 and TypeScript backend foundation through fulfilment, payouts, purchase-linked reviews, merchandising, auditable reports, persistent support chat, and consent-controlled notifications. B12 release hardening and handover is ready for owner review; local verification is not acceptance or production authorization.
 
 ## Local setup with XAMPP MariaDB
 
@@ -24,6 +24,9 @@ Use a separate database whose name ends in `_test` for integration tests. Local 
 - `npm run earnings:sync` (idempotently accrues and releases eligible seller earnings)
 - `npm run payouts:reconcile` (verifies uncertain/pending transfers by their original reference)
 - `npm run payouts:verify-provider` (verification-only Paystack test transfer check; refuses live keys)
+- `npm run ops:check` (non-zero exit for overdue queues, stale leases, expired reservations, or finance recovery work)
+- `npm run backup:verify` (guarded isolated logical backup/restore and migration recovery rehearsal)
+- `npm run performance:prepare` (creates ignored tokens for ten isolated checkout identities in a `_test` database)
 
 ## B02 authentication fixtures
 
@@ -107,3 +110,9 @@ Admins manage audited homepage banners and review moderation. Admin and finance 
 Customer support threads and messages are persisted before Socket.IO publication. Connections authenticate with bearer access tokens, authorized joins control room membership, client UUIDs deduplicate retries, acknowledgements return the stored message and reconnects fetch missed history after a bigint message offset. HTTP history and message routes remain available when sockets are unavailable. The leased outbox publisher is at-least-once, so clients deduplicate persistent event/message IDs.
 
 Email jobs now record delivery and attempt state, recover abandoned worker leases, stop after a bounded retry count and retain one logical job across retries. Marketing defaults off, requires explicit customer consent, respects unsubscribe/bounce/complaint/manual suppression at send time and includes an opaque unsubscribe link. Set `MARKETING_UNSUBSCRIBE_BASE_URL` to the public `/api/v1/marketing/unsubscribe` URL before campaign creation; production sender/DNS/provider approval remains open. See `docs/api/support-notifications.md` and ADR 0012.
+
+## B12 release operations
+
+B12 adds strict production configuration checks, exact-origin CORS, HTTP security headers, normalized malformed/oversized JSON errors, an operations-state check, guarded backup/restore verification, and isolated Postman performance profiles. See `docs/operations/release-runbook.md`, `docs/operations/backup-restore.md`, and `docs/operations/backend-handover.md` before staging.
+
+The production MySQL run, provider dashboards, sender/DNS, object storage, hosting/DNS/TLS, policy approvals, production-like capacity test, training, deployment approval, and live-money authorization remain explicit gates. Do not treat the local B12 evidence as permission to deploy or move money.

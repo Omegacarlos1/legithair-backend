@@ -1,0 +1,42 @@
+B12 local performance evidence
+Date: 2026-10-30
+Runner: Postman CLI 1.75.0 local runner
+Target: API and MariaDB on the same Windows/XAMPP host
+Profile: fixed concurrency, one minute configured; provider calls excluded
+Gates: p95 < 1000 ms and request error rate < 1%; final assertion failure rate also required to be 0%
+
+Browsing command
+postman performance run postman/performance/B12_Browsing.postman_collection.json --runner local --load-profile fixed --peak-vu 50 --duration 1 --pass-if "less_than(p95, 1000)" --pass-if "less_than(error_rate, 1)" --disable-unicode
+
+Browsing result, run eb3379de-01e7-498a-b963-3d3c29889f8d:
+- 50 virtual users, 1:11 observed duration
+- 6,883 requests; 96.94 requests/second
+- average 31 ms; p90 61 ms; p95 82 ms; p99 133 ms
+- 0.00% request errors; 0.00% assertion failures
+- both explicit gates passed
+
+Checkout preparation created ten ignored runtime token rows, one guarded `_test` identity/basket per VU. No token file is committed.
+
+Rejected initial checkout run, run 63a6284a-ca13-4375-a93d-f41dc3536f73:
+- Transport metrics were p95 75 ms and 0.45% errors, but the test failure rate was 50.22%.
+- Functional reproduction showed the collection asserted `order.reservation.status`; the contract returns `order.reservations[]`.
+- Server logs also showed retryable MariaDB deadlocks under same-product contention. This run is explicitly not acceptance evidence.
+- The collection assertion was corrected. Quote and order short transactions now use bounded exponential-jitter retry for deadlock/lock-timeout errors only. The full integration suite then passed.
+
+Corrected functional checkout collection:
+- 10 iterations, 20 requests, 40 assertions
+- 20/20 requests and 40/40 assertions passed
+- average 46 ms; minimum 26 ms; maximum 93 ms
+
+Final checkout command
+postman performance run postman/performance/B12_Checkout.postman_collection.json --runner local --load-profile fixed --peak-vu 10 --duration 1 --data-file postman/performance/.generated-checkout-data.json --pass-if "less_than(p95, 1000)" --pass-if "less_than(error_rate, 1)" --disable-unicode
+
+Final checkout result, run cbccdf61-eb0e-422d-9417-9f3c42318818:
+- 10 virtual users, 1:11 observed duration
+- 1,739 requests; 24.49 requests/second
+- average 38 ms; p90 73 ms; p95 89 ms; p99 125 ms
+- 0.00% request errors; 0.00% assertion failures
+- both explicit gates passed
+
+Limitations: the generator and API shared one development machine; data was synthetic; MariaDB was used; external provider and network latency were excluded; this does not size or approve production infrastructure. The write profile intentionally contended on one high-stock product and measured only quote plus reservation creation, not hosted Paystack checkout.
+
