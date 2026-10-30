@@ -9,17 +9,18 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 ## Current milestone
 
 CURRENT_MILESTONE: B11
-STATUS: READY_FOR_REVIEW
+STATUS: ACCEPTED
 STARTED: 2026-10-30
 READY_FOR_REVIEW: 2026-10-30
-B01–B10 are ACCEPTED. B11 is READY_FOR_REVIEW. B12 is NOT_STARTED.
+ACCEPTED: 2026-10-30
+B01–B11 are ACCEPTED. B12 is NOT_STARTED.
 B03 was explicitly accepted with reduced scope. Dojah identity verification, consent records, provider callbacks, provider test-mode evidence, seller approval policy, and production MySQL verification remain open. Real seller approval remains disabled; B04 catalogue tests use explicitly synthetic approved-seller fixtures only and must not introduce a production approval bypass.
 B06 was explicitly accepted with fail-closed order policy configuration. Commission basis/rate, reservation lifetime and COD eligibility/reconciliation remain owner decisions; automated and owner-tested values are synthetic test inputs only. Production order creation must remain disabled until those choices are approved and configured.
 B07 was explicitly accepted on 2026-10-27 with local fake-Paystack and MariaDB evidence. Paystack test-mode account/dashboard webhook evidence and owner Postman execution remain open; no live key or live money movement is authorised. Late payments are recorded for controlled refund/manual review, whose execution belongs to B08.
 B08 was explicitly accepted on 2026-10-27 with local fake-refund and MariaDB evidence. Return-window, delivery-fee refund, earnings-hold and after-payout recovery policy remain owner decisions; production return/refund approval stays fail-closed where those values are required. Paystack refund test-mode/dashboard evidence and owner Postman execution remain open. Seller reversal obligations are recorded for B09 classification; no live refund or money movement is authorised.
 B09 was explicitly accepted on 2026-10-29 after local fake-Paystack/MariaDB verification and owner-reported successful manual Postman execution. Earnings hold duration, payout operations/frequency, recovery treatment, Paystack transfer/recipient test-mode evidence and production MySQL remain open. Earnings accrual is fail-closed without a hold duration and payout initiation defaults disabled; no live money movement is authorised.
 B10 was explicitly accepted by the owner on 2026-10-30 after local MariaDB verification and owner manual review-request testing. Complete owner Postman evidence, production MySQL compatibility, deployment performance, data retention and final staff-role assignments remain open. Reports use documented accounting definitions and bounded exports; acceptance makes no provider or live-money claim.
-B11 is locally verified on MariaDB with synthetic support, reconnect, outbox recovery, email retry, consent, suppression and unsubscribe fixtures. Owner Postman execution, production MySQL compatibility, multi-instance Socket.IO coordination, production email sender/DNS, provider bounce and complaint ingestion, deployment performance and data retention remain open. B11 makes no production-provider or deployment acceptance claim.
+B11 was explicitly accepted by the owner on 2026-10-30 after local MariaDB verification with synthetic support, reconnect, outbox recovery, email retry, consent, suppression and unsubscribe fixtures. Owner Postman execution was not separately reported. Production MySQL compatibility, multi-instance Socket.IO coordination, production email sender/DNS, provider bounce and complaint ingestion, deployment performance and data retention remain open; acceptance makes no production-provider or deployment claim.
 
 ## Decisions before dependent implementation
 

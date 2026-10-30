@@ -1,6 +1,6 @@
 # B11 realtime support and notifications summary
 
-Status: READY_FOR_REVIEW on 2026-10-30
+Status: ACCEPTED on 2026-10-30
 
 ## Completed scope
 
@@ -63,11 +63,11 @@ Keep the repository collection already open in Postman; refresh or reopen it rat
 5. Expect statuses `200, 201, 200, 404, 201, 201, 403, 200`. The request tests save the B11 IDs and assert the important body fields.
 6. Optionally run `npm run email:work-once` while still using the fake provider, then inspect the campaign delivery endpoint documented in OpenAPI. No real email is sent.
 
-The collection/environment and OpenAPI parse successfully. Owner manual Postman execution has not yet been reported, so B11 is ready for review rather than accepted. Detailed expected results are in [Postman evidence](evidence/B11/postman-contract.txt).
+The collection/environment and OpenAPI parse successfully. The owner explicitly accepted B11 on 2026-10-30. Manual Postman execution was not separately reported, so that evidence remains open rather than being inferred from acceptance. Detailed expected results are in [Postman evidence](evidence/B11/postman-contract.txt).
 
 ## Open gates and limitations
 
-- Explicit owner acceptance and owner manual Postman evidence remain open.
+- B11 owner acceptance is complete. Owner manual Postman evidence remains open.
 - Verification used MariaDB 10.4.32, not production MySQL.
 - Socket.IO delivery is verified for one application instance. Horizontal deployment needs a reviewed shared adapter and coordinated outbox ownership; database history remains authoritative.
 - Production email sender credentials, SPF/DKIM/DMARC, provider selection, bounce/complaint webhook ingestion and delivery monitoring remain release gates. Local provider evidence used only the fake adapter and a no-network Gmail renderer test.
@@ -77,11 +77,11 @@ The collection/environment and OpenAPI parse successfully. Owner manual Postman 
 
 ## Pull request description
 
-Implement B11 persistent support and notifications: customer-owned threads, authenticated Socket.IO rooms, idempotent acknowledgements, reconnect history, transactional outbox publication, durable email retry records, explicit marketing consent, suppression and unsubscribe. Add migration 014, OpenAPI/Postman contracts, guarded fixtures and 112 passing automated checks. Main risks are destructive rollback, unverified production MySQL/multi-instance behavior and incomplete production email/provider controls. No live email, deployment or money movement occurred.
+Implement B11 persistent support and notifications: customer-owned threads, authenticated Socket.IO rooms, idempotent acknowledgements, reconnect history, transactional outbox publication, durable email retry records, explicit marketing consent, suppression and unsubscribe. Add migration 014, OpenAPI/Postman contracts, guarded fixtures and 112 passing automated checks. Main risks are destructive rollback, unverified production MySQL/multi-instance behavior, incomplete production email/provider controls and unreported owner Postman execution. No live email, deployment or money movement occurred. B11 was explicitly accepted on 2026-10-30.
 
 ## Complete next-milestone prompt
 
-B12 must not start until the owner explicitly accepts B11. When that happens, use this complete copy-ready prompt:
+The B12 entry gate is now satisfied by explicit B11 acceptance. B12 remains `NOT_STARTED` and requires a separate owner instruction. Use this complete copy-ready prompt when instructed:
 
 ```text
 ## B12 Release hardening and backend handover

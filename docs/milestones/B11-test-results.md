@@ -1,7 +1,7 @@
 # B11 test results
 
 Date: 2026-10-30  
-Status: READY_FOR_REVIEW
+Status: ACCEPTED
 
 ## Final results
 
@@ -20,7 +20,7 @@ Status: READY_FOR_REVIEW
 | Guarded fixture seed | PASS | 6 users, including support; 2 synthetic sellers; 2 products |
 | Postman JSON and OpenAPI YAML parse | PASS | Parsed locally |
 | Dependency audit | PASS | 0 known vulnerabilities reported |
-| Owner Postman run | PENDING | Not claimed |
+| Owner Postman run | PENDING | Not separately reported; acceptance does not imply execution |
 | Production MySQL | NOT RUN | MariaDB is not compatibility proof |
 | Production email/provider checks | NOT RUN | No real email or provider call authorised |
 
@@ -42,3 +42,5 @@ The ordinary `npm test`, `npm run test:integration` and direct `tsx`-based wrapp
 The first final integration run was affected by an already-running local API connected to the disposable test schema and produced one 40-second timeout. After stopping that local process, the affected payment file passed 7/7 and the full suite passed 64/64. A Socket.IO rerun then revealed a test that listened to the first valid queued event instead of the intended client ID; the assertion was made event-ID aware and the final socket suite passed 2/2. These were environment/test-harness issues, not hidden application assertions.
 
 See [automated tests](evidence/B11/automated-tests.txt), [database and fixtures](evidence/B11/local-database-and-fixtures.txt), [Postman contract](evidence/B11/postman-contract.txt), and [dependency/provider checks](evidence/B11/dependency-and-provider-checks.txt).
+
+The owner explicitly accepted B11 on 2026-10-30. This changes the milestone state only; it does not convert the unreported Postman, production MySQL, production provider or deployment checks into passing evidence.

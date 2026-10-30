@@ -25,5 +25,5 @@ No-import manual sequence
 15. Send B11 Customer marketing opt-out: expected 200 and optedIn=false.
 
 Owner execution
-- Not run or claimed during closeout.
-- B11 remains READY_FOR_REVIEW pending owner manual evidence and explicit acceptance.
+- Not separately reported or claimed.
+- The owner explicitly accepted B11 on 2026-10-30; acceptance does not imply that this manual request sequence was executed.
