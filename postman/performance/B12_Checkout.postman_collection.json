@@ -1,0 +1,47 @@
+{
+  "info": {
+    "name": "B12 Checkout Performance",
+    "description": "Ten-VU isolated quote and inventory-reserving checkout profile. Requires generated token data and guarded test policy.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "exec": ["setTimeout(() => {}, 250);"] }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:3000" },
+    { "key": "pickupLocationId", "value": "60000000-0000-4000-8000-000000000005" }
+  ],
+  "item": [
+    {
+      "name": "Create isolated checkout quote",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "b12-quote-{{$guid}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"pickup\",\"pickupLocationId\":\"{{pickupLocationId}}\"}" },
+        "url": "{{baseUrl}}/api/v1/checkout/quotes"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('quote created', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.test('quote envelope', () => pm.expect(body.success).to.eql(true));", "pm.variables.set('quoteId', body.data.quote.id);"] } }]
+    },
+    {
+      "name": "Reserve checkout order",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "b12-order-{{$guid}}" }
+        ],
+        "body": { "mode": "raw", "raw": "{\"quoteId\":\"{{quoteId}}\",\"paymentMethod\":\"paystack\"}" },
+        "url": "{{baseUrl}}/api/v1/orders"
+      },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('order reserved', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.test('reservation active', () => pm.expect(body.data.order.reservations.every((reservation) => reservation.status === 'active')).to.eql(true));"] } }]
+    }
+  ]
+}

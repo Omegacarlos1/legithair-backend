@@ -11,8 +11,8 @@ paths:
     get:
       summary: Dependency readiness
       responses:
-        '200': { description: MariaDB is available }
-        '503': { description: MariaDB is unavailable }
+        '200': { description: Configured database is available }
+        '503': { description: Configured database is unavailable }
   /api/v1/auth/register:
     post:
       summary: Register a customer and queue verification email
@@ -22,7 +22,7 @@ paths:
     post:
       summary: Consume a single-use email verification token
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/Token' } } } }
-      responses: { '200': { description: Verified }, '400': { description: Invalid, used, or expired token } }
+      responses: { '200': { description: Verified }, '400': { description: 'Invalid, used, or expired token' } }
   /api/v1/auth/resend-verification:
     post:
       summary: Queue a replacement verification message without revealing account state
@@ -35,7 +35,7 @@ paths:
   /api/v1/auth/refresh:
     post:
       summary: Rotate refresh token
-      responses: { '200': { description: Rotated }, '401': { description: Invalid, expired, or reused token } }
+      responses: { '200': { description: Rotated }, '401': { description: 'Invalid, expired, or reused token' } }
   /api/v1/auth/logout:
     post:
       security: [{ bearerAuth: [] }]
@@ -48,7 +48,7 @@ paths:
   /api/v1/auth/reset-password:
     post:
       summary: Consume reset token, update password, and revoke sessions
-      responses: { '200': { description: Password reset }, '400': { description: Invalid, used, or expired token } }
+      responses: { '200': { description: Password reset }, '400': { description: 'Invalid, used, or expired token' } }
   /api/v1/me:
     get:
       security: [{ bearerAuth: [] }]
@@ -110,7 +110,7 @@ paths:
     get:
       summary: Get a published product and its image metadata
       parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Published product }, '404': { description: Product is absent, unpublished, or in an inactive category } }
+      responses: { '200': { description: Published product }, '404': { description: 'Product is absent, unpublished, or in an inactive category' } }
   /api/v1/products/{productId}/related:
     get:
       summary: Get published products in the same category
@@ -124,7 +124,7 @@ paths:
       parameters:
         - { name: productId, in: path, required: true, schema: { type: string, format: uuid } }
         - { name: imageId, in: path, required: true, schema: { type: string, format: uuid } }
-      responses: { '200': { description: JPEG, PNG, or WebP bytes }, '404': { description: Image or published product not found } }
+      responses: { '200': { description: 'JPEG, PNG, or WebP bytes' }, '404': { description: Image or published product not found } }
   /api/v1/admin/categories:
     post:
       security: [{ bearerAuth: [] }]
@@ -142,7 +142,7 @@ paths:
     get:
       security: [{ bearerAuth: [] }]
       summary: List the approved seller's own products, including drafts
-      responses: { '200': { description: Own products }, '403': { description: Seller is not verified and approved, or is suspended } }
+      responses: { '200': { description: Own products }, '403': { description: 'Seller is not verified and approved, or is suspended' } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create a seller-owned draft product
@@ -221,13 +221,13 @@ paths:
     get:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Read the current isolated customer or guest basket
-      responses: { '200': { description: Basket with observed/current prices and availability }, '401': { description: Missing, invalid, or expired credential } }
+      responses: { '200': { description: Basket with observed/current prices and availability }, '401': { description: 'Missing, invalid, or expired credential' } }
   /api/v1/baskets/items:
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Set the absolute quantity of one published product
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SetBasketItem' } } } }
-      responses: { '201': { description: Basket item set }, '401': { description: Basket credential required }, '409': { description: Product unavailable, stock insufficient, or basket limit reached } }
+      responses: { '201': { description: Basket item set }, '401': { description: Basket credential required }, '409': { description: 'Product unavailable, stock insufficient, or basket limit reached' } }
   /api/v1/baskets/items/{productId}:
     delete:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -244,7 +244,7 @@ paths:
     post:
       security: [{ bearerAuth: [], guestBasketAuth: [] }]
       summary: Merge a guest basket into the authenticated customer basket exactly once
-      responses: { '200': { description: Merged or safely replayed }, '409': { description: Quantity, line, stock, or prior-owner conflict } }
+      responses: { '200': { description: Merged or safely replayed }, '409': { description: 'Quantity, line, stock, or prior-owner conflict' } }
   /api/v1/delivery-options:
     get:
       summary: List active Lagos delivery zones and pickup locations
@@ -287,7 +287,7 @@ paths:
       summary: Create an immutable expiring NGN quote with per-seller delivery allocation
       parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutQuoteInput' } } } }
-      responses: { '201': { description: Quote created }, '200': { description: Idempotent replay }, '400': { description: Invalid request or idempotency key }, '409': { description: Stale price, unavailable product, unsupported address, or key conflict } }
+      responses: { '201': { description: Quote created }, '200': { description: Idempotent replay }, '400': { description: Invalid request or idempotency key }, '409': { description: 'Stale price, unavailable product, unsupported address, or key conflict' } }
   /api/v1/checkout/quotes/{quoteId}:
     get:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -300,31 +300,31 @@ paths:
       summary: Atomically create one order and reserve quoted inventory
       parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateOrder' } } } }
-      responses: { '201': { description: Order and reservations created }, '200': { description: Identical idempotent replay }, '401': { description: Owner credential required }, '404': { description: Quote not found or not owned }, '409': { description: Changed replay, unavailable stock, used quote, or unavailable COD }, '410': { description: Quote expired }, '503': { description: Order policy or guest credential generation not configured } }
+      responses: { '201': { description: Order and reservations created }, '200': { description: Identical idempotent replay }, '401': { description: Owner credential required }, '404': { description: Quote not found or not owned }, '409': { description: 'Changed replay, unavailable stock, used quote, or unavailable COD' }, '410': { description: Quote expired }, '503': { description: Order policy or guest credential generation not configured } }
   /api/v1/orders/{orderId}:
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: Read an order owned by the customer or guest tracking credential
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Order, seller suborders, immutable item snapshots, and reservations }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
+      responses: { '200': { description: 'Order, seller suborders, immutable item snapshots, and reservations' }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
   /api/v1/payments/initialize:
     post:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: Persist and initialize the owned order's server-controlled Paystack NGN payment
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InitializePayment' } } } }
-      responses: { '201': { description: Payment attempt persisted and initialized }, '200': { description: Existing attempt returned }, '400': { description: Guest email required or input invalid }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible }, '409': { description: Order not payable, reservation expired, or email changed }, '503': { description: Paystack unconfigured or temporarily unavailable } }
+      responses: { '201': { description: Payment attempt persisted and initialized }, '200': { description: Existing attempt returned }, '400': { description: Guest email required or input invalid }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible }, '409': { description: 'Order not payable, reservation expired, or email changed' }, '503': { description: Paystack unconfigured or temporarily unavailable } }
   /api/v1/payments/verify:
     post:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: Verify the persisted order reference with Paystack and settle only exact matches
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/VerifyPayment' } } } }
-      responses: { '200': { description: Provider result reconciled, including pending or idempotent success }, '401': { description: Access credential required }, '404': { description: Order/payment absent or inaccessible }, '409': { description: Supplied reference or verified provider fields mismatch }, '503': { description: Paystack temporarily unavailable } }
+      responses: { '200': { description: 'Provider result reconciled, including pending or idempotent success' }, '401': { description: Access credential required }, '404': { description: Order/payment absent or inaccessible }, '409': { description: Supplied reference or verified provider fields mismatch }, '503': { description: Paystack temporarily unavailable } }
   /api/v1/payments/webhooks/paystack:
     post:
       summary: Receive raw-body HMAC SHA-512 authenticated Paystack events
       parameters: [{ name: X-Paystack-Signature, in: header, required: true, schema: { type: string, pattern: '^[A-Fa-f0-9]{128}$' } }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [event, data] } } } }
-      responses: { '200': { description: Authenticated event processed, ignored, rejected, or deduplicated }, '401': { description: Forged or missing signature } }
+      responses: { '200': { description: 'Authenticated event processed, ignored, rejected, or deduplicated' }, '401': { description: Forged or missing signature } }
   /api/v1/orders/{orderId}/receipt:
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
@@ -344,7 +344,7 @@ paths:
       summary: Record authorised delivery, pickup, or eligible COD cancellation progress
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
-      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: Invalid jump, delivery-method mismatch, or paid cancellation requiring refund } }
+      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: 'Invalid jump, delivery-method mismatch, or paid cancellation requiring refund' } }
   /api/v1/orders/{orderId}/fulfilment:
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
@@ -364,7 +364,7 @@ paths:
       summary: Submit an idempotent item-level return request within the configured window
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReturn' } } } }
-      responses: { '201': { description: Return request created }, '200': { description: Identical idempotent replay }, '404': { description: Order or item absent or inaccessible }, '409': { description: Invalid state, closed window, quantity exceeded, or changed replay }, '503': { description: Return window not configured } }
+      responses: { '201': { description: Return request created }, '200': { description: Identical idempotent replay }, '404': { description: Order or item absent or inaccessible }, '409': { description: 'Invalid state, closed window, quantity exceeded, or changed replay' }, '503': { description: Return window not configured } }
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: List return and refund outcomes for the owned order
@@ -376,7 +376,7 @@ paths:
       summary: Reject a return or approve its exact bounded Paystack refund
       parameters: [{ name: returnRequestId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewReturn' } } } }
-      responses: { '200': { description: Review recorded and any provider refund initiated once }, '403': { description: Admin role required }, '409': { description: Already reviewed, COD policy unresolved, or provider rejection }, '503': { description: Refund policy/provider unconfigured or temporarily unavailable } }
+      responses: { '200': { description: Review recorded and any provider refund initiated once }, '403': { description: Admin role required }, '409': { description: 'Already reviewed, COD policy unresolved, or provider rejection' }, '503': { description: Refund policy/provider unconfigured or temporarily unavailable } }
   /api/v1/admin/refunds/{refundId}/reconcile:
     post:
       security: [{ bearerAuth: [] }]
@@ -397,7 +397,7 @@ paths:
       summary: Record exact cash collection for a delivered COD order without making earnings eligible
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RecordCodCollection' } } } }
-      responses: { '201': { description: Collection recorded }, '200': { description: Identical replay }, '409': { description: Not delivered, amount mismatch, or conflicting record } }
+      responses: { '201': { description: Collection recorded }, '200': { description: Identical replay }, '409': { description: 'Not delivered, amount mismatch, or conflicting record' } }
   /api/v1/admin/cod-collections/{collectionId}:
     patch:
       security: [{ bearerAuth: [] }]
@@ -422,7 +422,7 @@ paths:
       summary: Reserve available earnings and initiate one NGN Paystack transfer
       parameters: [{ in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { type: object, required: [sellerId, amountMinor], additionalProperties: false, properties: { sellerId: { type: string, format: uuid }, amountMinor: { type: integer, minimum: 1 } } } } } }
-      responses: { '202': { description: Payout persisted and provider initiation attempted }, '200': { description: Idempotent replay }, '403': { description: Finance role required }, '409': { description: Insufficient available earnings, recipient absent, or key reused }, '503': { description: Payout policy disabled } }
+      responses: { '202': { description: Payout persisted and provider initiation attempted }, '200': { description: Idempotent replay }, '403': { description: Finance role required }, '409': { description: 'Insufficient available earnings, recipient absent, or key reused' }, '503': { description: Payout policy disabled } }
   /api/v1/admin/payouts/{payoutId}:
     get:
       security: [{ bearerAuth: [] }]
@@ -433,6 +433,7 @@ paths:
     post:
       security: [{ bearerAuth: [] }]
       summary: Verify an uncertain or pending transfer by its original provider reference
+      parameters: [{ in: path, name: payoutId, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Reconciled or still pending }, '403': { description: Finance role required } }
   /api/v1/products/{productId}/reviews:
     get:
@@ -502,7 +503,7 @@ paths:
       security: [{ bearerAuth: [] }]
       summary: List the authenticated customer's threads or the staff support queue
       parameters: [{ in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }]
-      responses: { '200': { description: Authorized support thread list }, '403': { description: Customer, support, or admin role required } }
+      responses: { '200': { description: Authorized support thread list }, '403': { description: 'Customer, support, or admin role required' } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create an idempotent customer support thread with its first persistent message

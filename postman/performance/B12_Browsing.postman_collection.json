@@ -1,0 +1,38 @@
+{
+  "info": {
+    "name": "B12 Browsing Performance",
+    "description": "Public internal-read profile for the proposed 50-user pilot. Local test target only.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "exec": ["setTimeout(() => {}, 250);"] }
+    }
+  ],
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:3000" }
+  ],
+  "item": [
+    {
+      "name": "Browse published products",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/products?limit=20&sort=popularity" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('products 200', () => pm.response.to.have.status(200));", "pm.test('products envelope', () => pm.expect(pm.response.json().success).to.eql(true));"] } }]
+    },
+    {
+      "name": "Browse categories",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/categories" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('categories 200', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "Browse delivery options",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/delivery-options" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('delivery options 200', () => pm.response.to.have.status(200));"] } }]
+    },
+    {
+      "name": "Browse active banners",
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/v1/banners" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('banners 200', () => pm.response.to.have.status(200));"] } }]
+    }
+  ]
+}
