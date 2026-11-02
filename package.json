@@ -35,7 +35,8 @@
     "ops:check": "tsx scripts/check-operations.ts",
     "backup:verify": "tsx scripts/verify-backup-restore.ts",
     "performance:prepare": "tsx scripts/prepare-performance.ts",
-    "postman:organize": "node scripts/organize-postman-collection.mjs"
+    "postman:organize": "node scripts/organize-postman-collection.mjs",
+    "postman:verify-email": "node scripts/run-postman-email-verification.mjs"
   },
   "dependencies": {
     "argon2": "0.45.1",

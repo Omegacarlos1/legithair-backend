@@ -1,0 +1,11 @@
+version: 1
+name: Legit Hair Local Paystack Stand-in
+slug: legit-hair-paystack
+protocol: http
+port: 4511
+origin: api.paystack.co
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true
