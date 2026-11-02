@@ -11,6 +11,7 @@ Status: READY_FOR_REVIEW on 2026-10-30; owner acceptance is not inferred.
 - Added provider-safe Postman smoke plus fixed 50-VU browsing and isolated 10-VU checkout profiles. Runtime access-token data is ignored.
 - Added staging/DNS/HTTPS/MySQL/worker/monitoring/deployment guidance, backup/recovery procedure, staff handover, responsibilities, training outline, and explicit release gates.
 - Repaired OpenAPI flow-map syntax and a missing payout path parameter; updated the maintained collection and API envelope documentation.
+- On 2026-11-02, reorganized the 112-request maintained collection into the existing cloud `legit-hair` collection under `auth`, `seller`, `admin`, `products`, `delivery`, `payment`, and `finance`, with domain subfolders. Replaced stale saved examples that contained credentials/tokens and added the placeholder-only `Legit Hair Local` environment. B12 remains READY_FOR_REVIEW.
 
 ## Verification summary
 
@@ -29,11 +30,13 @@ Do not use down migrations as routine production rollback; they destroy mileston
 3. For load, run `npm run performance:prepare`; the ignored token file is generated under `postman/performance/`.
 4. Run the documented fixed browsing and checkout commands in the performance evidence. Load only an isolated target with explicit authority.
 5. The main B01-B12 collection remains the detailed manual workflow. Provider refund/payout/payment requests must not be run against live accounts without separate authorization.
+6. In Postman, select the `Legit Hair Local` environment before running the `legit-hair` collection. Run `npm run postman:organize` after adding maintained samples so every request is assigned to exactly one domain folder before export or cloud sync.
 
 ## Changed areas
 
 - Runtime/security: `.env.example`, `src/app.ts`, `src/config.ts`, `src/server.ts`, `src/http/security.ts`.
 - Recovery/operations/performance: `scripts/check-operations.ts`, `scripts/verify-backup-restore.ts`, `scripts/prepare-performance.ts`, `postman/performance/`, `postman/B12_Smoke.postman_collection.json`.
+- Postman maintenance: `scripts/organize-postman-collection.mjs`, `postman/Legit_Hair_Backend.postman_collection.json`, and `postman/Local.postman_environment.json`.
 - Contention hardening: `src/baskets/service.ts`, `src/orders/service.ts`.
 - Verification: focused unit/API tests and B12 evidence.
 - Handover/contracts: ADR 0013, `docs/operations/`, API docs/OpenAPI, README, Postman collection, milestone tracker, and AGENTS status.

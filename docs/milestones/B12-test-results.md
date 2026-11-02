@@ -23,6 +23,7 @@ Status: READY_FOR_REVIEW
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
+| Postman cloud organization follow-up | PASS | 112 requests; 7 top-level folders; cloud collection updated in place; placeholder environment created |
 | Dependency audit | PASS | 0 known vulnerabilities reported |
 | Production MySQL | NOT RUN | MariaDB 10.4.32 is not compatibility proof |
 | Provider test-mode/dashboard | NOT RUN | No provider credentials or calls authorized |
@@ -39,9 +40,15 @@ The first checkout performance run is rejected evidence: it exposed a bad collec
 
 The first OpenAPI syntax lint exposed baseline flow-map defects. The final independent lint exited 0 with no issues.
 
+## Post-review Postman organization (2026-11-02)
+
+The maintained collection was reorganized without losing or duplicating requests: 112 before and 112 after. Migration to Postman v3 scanned 147 files with zero lint errors or warnings. The scoped cloud diff showed one update (`legit-hair`), zero creates, and zero workspace deletions; the push updated that one collection successfully. A second isolated diff showed one create (`Legit Hair Local`), zero updates, and zero deletions; the environment push succeeded. Remote verification returned the same collection ID, the seven requested top-level folders, 112 requests, and no saved bearer token or Gmail credential sample.
+
+The first repository ESLint run found JavaScript utility rule/import issues. Those were corrected; final `npm run lint` and `npm run typecheck` both exited 0. See [Postman cloud sync evidence](evidence/B12/postman-cloud-sync.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), and [Postman/contract/security](evidence/B12/postman-contract-security.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), and [Postman cloud sync](evidence/B12/postman-cloud-sync.txt).
 
