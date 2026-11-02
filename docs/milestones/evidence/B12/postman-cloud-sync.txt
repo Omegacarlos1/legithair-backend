@@ -86,3 +86,12 @@ LIMITATIONS
 - Requests were not executed in this follow-up; earlier B12 smoke/regression evidence remains the execution evidence.
 - No provider test-mode or live provider request was made.
 - No deployment, DNS, production database, or live-money authority is implied.
+
+SECOND SYNC: EXECUTED FULL REGRESSION FOLLOW-UP (2026-11-02)
+- Local execution evidence: `full-postman-regression.txt`.
+- The cloud diff was explicitly scoped after an unscoped preview detected unrelated collection metadata and a local mock create; that unsafe preview was not pushed.
+- Final scoped diff: create 0, update 1 (`legit-hair`), delete 0.
+- Final push: created 0, updated 1, deleted 0, failed 0, blocked 0.
+- Remote collection verification: same collection ID, 239 requests, 10 expected top-level folders and 0 non-empty saved token variables.
+- Existing `Legit Hair Local` environment updated in place with the valid synthetic `RCP_LOCALTEST001` recipient code.
+- No unrelated collection, environment, globals or mock resource was changed.

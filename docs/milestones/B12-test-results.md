@@ -23,7 +23,11 @@ Status: READY_FOR_REVIEW
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
-| Postman cloud organization follow-up | PASS | 112 requests; 7 top-level folders; cloud collection updated in place; placeholder environment created |
+| Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
+| Frontend Postman handover folder | PASS | 15 requests, 15 test scripts, 21 assertions, zero final failures |
+| Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
+| Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
+| Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
 | Dependency audit | PASS | 0 known vulnerabilities reported |
 | Production MySQL | NOT RUN | MariaDB 10.4.32 is not compatibility proof |
 | Provider test-mode/dashboard | NOT RUN | No provider credentials or calls authorized |
@@ -46,9 +50,13 @@ The maintained collection was reorganized without losing or duplicating requests
 
 The first repository ESLint run found JavaScript utility rule/import issues. Those were corrected; final `npm run lint` and `npm run typecheck` both exited 0. See [Postman cloud sync evidence](evidence/B12/postman-cloud-sync.txt).
 
+The frontend handover follow-up retained the existing B11/B12 domain samples and added a curated provider-safe folder with five role logins and representative protected/public reads. Its first imported run exposed four malformed v2.1 query URL objects; the organizer was corrected and the final folder run passed 15/15 requests and 21/21 assertions. No access or refresh token was saved. See [frontend handover evidence](evidence/B12/frontend-handover-postman.txt).
+
+The complete Postman follow-up duplicated maintained requests into dependency order without removing their domain-organized originals. After correcting a synthetic payout recipient value and resetting only the disposable test schema, `full-regression` passed 110/110 requests and 214/214 assertions. The fake-email token boundary was exercised separately by the saved Postman request and passed 2/2 assertions without exposing the token. The database-off readiness case remains visible and correctly classified NOT RUN rather than falsely passed. See [full Postman evidence](evidence/B12/full-postman-regression.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), and [Postman cloud sync](evidence/B12/postman-cloud-sync.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), and [full Postman regression](evidence/B12/full-postman-regression.txt).
 

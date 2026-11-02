@@ -1,0 +1,88 @@
+B12 FRONTEND POSTMAN HANDOVER FOLLOW-UP
+Date: 2026-11-02
+Status impact: none; B12 remains READY_FOR_REVIEW and is not accepted by this work.
+
+SCOPE
+- Existing B11 and B12 samples were left in their current domain folders as requested.
+- Added a provider-safe `frontend-handover` folder to the existing maintained `legit-hair` collection.
+- Source requests: postman/B12_Smoke.postman_collection.json.
+- Handover groups: health-and-security, customer, public-catalogue-and-delivery, seller, admin, finance, support.
+- Tokens are assigned to runtime-only collection variables by login test scripts; no real token value is persisted.
+
+TARGET
+- API: http://127.0.0.1:3000
+- NODE_ENV=test
+- Database: legit_hair_app_test (MariaDB local evidence only)
+- Email provider: fake
+- Paystack key: empty
+- Fixtures: synthetic seed only
+
+SEED
+The normal tsx wrapper remained blocked before startup by the documented Windows uv_os_get_passwd/ENOMEM host issue.
+Equivalent established process-local shim invoked seedTestFixtures() against legit_hair_app_test.
+Result: PASS
+- 6 synthetic B02-B11 users
+- 2 synthetic approved sellers
+- 2 checkout products
+
+BASELINE PROVIDER-SAFE SMOKE
+Command: postman collection run postman/B12_Smoke.postman_collection.json --no-report-events --timeout-request 5000
+Result: PASS (exit 0)
+- Requests: 15 passed, 0 failed
+- Test scripts: 15 passed, 0 failed
+- Assertions: 21 passed, 0 failed
+- Role logins: customer, seller, admin, finance, support all returned 200
+- No payment, refund, payout, email-provider, or other live provider request ran
+
+STRUCTURED REPORTER LIMITATION
+Command attempted with --output to a temporary directory.
+Result: BLOCKED before report generation because Postman CLI could not verify the account plan for the --output feature.
+No report or credential-bearing file was produced. The empty temporary directory was removed.
+
+FIRST IMPORTED-FOLDER RUN
+Command: postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --no-report-events --timeout-request 5000
+Result: FAIL (exit 1)
+- 11 requests executed successfully.
+- 4 query-string requests failed before HTTP dispatch because the organizer emitted v2.1 URL objects without host/path fields.
+- Failed requests: published catalogue, moderation queue, sales report, support queue.
+- This was a Postman collection-format defect, not an API response failure.
+
+CORRECTION
+- The organizer now emits raw URL, variable host, path segments, and query entries together.
+- No backend behavior changed.
+
+FINAL IMPORTED-FOLDER RUN
+Command: postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --no-report-events --timeout-request 5000
+Result: PASS (exit 0)
+- Requests: 15 passed, 0 failed
+- Test scripts: 15 passed, 0 failed
+- Assertions: 21 passed, 0 failed
+- Total duration: 2.1 seconds
+- Average response: 49 ms
+- Minimum response: 6 ms
+- Maximum response: 141 ms
+- Data received: approximately 7.64 KB
+
+FINAL REQUEST RESULTS
+- Health and security headers: 200, 2 assertions passed
+- Database readiness: 200, 2 assertions passed
+- Disallowed browser origin: 403, 2 assertions passed
+- Customer login: 200, 1 assertion passed
+- Current customer: 200, 2 assertions passed
+- Published catalogue: 200, 2 assertions passed
+- Delivery options: 200, 1 assertion passed
+- Seller login: 200, 1 assertion passed
+- Seller catalogue: 200, 1 assertion passed
+- Admin login: 200, 1 assertion passed
+- Moderation queue: 200, 1 assertion passed
+- Finance login: 200, 1 assertion passed
+- Sales reconciliation report: 200, 2 assertions passed
+- Support login: 200, 1 assertion passed
+- Support queue: 200, 1 assertion passed
+
+LIMITATIONS
+- Results establish only the local synthetic provider-safe handover flow.
+- The normal dev wrapper was host-blocked; the documented process-local os.userInfo shim started the same server source.
+- Postman feature-flag lookup reported an offline AggregateError, but both non-output collection runs completed locally and the final run exited 0.
+- No response body containing access/refresh tokens was saved.
+- No production MySQL, hosted deployment, provider dashboard, frontend rendering, live credential, or live-money claim is made.

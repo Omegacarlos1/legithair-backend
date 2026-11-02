@@ -1,0 +1,94 @@
+B12 FULL POSTMAN REGRESSION FOLLOW-UP
+Date: 2026-11-02
+Status impact: none; B12 remains READY_FOR_REVIEW and is not accepted by this work.
+
+SCOPE
+- The maintained `legit-hair` collection now contains 239 requests.
+- 112 requests remain in the domain folders: auth, seller, admin, products, delivery, payment and finance.
+- 110 safe requests are duplicated in dependency order under `full-regression`.
+- 2 externally controlled requests are duplicated under `manual-regression`.
+- 15 provider-safe frontend requests remain under `frontend-handover`.
+- Static audit: all 239 requests contain at least one `pm.test` assertion.
+- Runtime-generated access tokens and resource IDs are not persisted in the collection.
+
+SYNTHETIC VALUES
+- Customer: customer.fixture@example.test / FixturePass123!
+- Seller: seller.fixture@example.test / FixturePass123!
+- Other seller: seller.other@example.test / FixturePass123!
+- Administrator: admin.fixture@example.test / FixturePass123!
+- Finance: finance.fixture@example.test / FixturePass123!
+- Support: support.fixture@example.test / FixturePass123!
+- Paystack recipient: RCP_LOCALTEST001 (synthetic local value)
+- Payment/refund/transfer provider: local Postman simulation only; no Paystack account or live key used
+
+ISOLATED TARGET
+- API: http://127.0.0.1:3000
+- NODE_ENV=test
+- Database: legit_hair_app_test
+- Email provider: fake
+- Payment provider base URL: http://127.0.0.1:4010/paystack
+- Product image: synthetic valid PNG in the host temporary directory
+- Test-only order, COD, refund, earnings and payout policy inputs were supplied explicitly.
+
+FIRST COMPLETE RUN
+- Requests: 112 executed, 0 transport failures.
+- Assertions: 217 executed, 9 failed; 1 script error.
+- The database-online readiness negative correctly could not expect 503 while MariaDB was running.
+- Email verification lacked the one-time fake-email token in a single uninterrupted collection run.
+- B09 payout requests failed because the original placeholder recipient code contained invalid characters.
+- Payment, refund, product upload, orders, COD, reporting, support, B11 and B12 workflows otherwise ran.
+
+CORRECTIONS
+- Replaced the invalid recipient placeholder with valid synthetic value RCP_LOCALTEST001.
+- Moved database-off readiness and captured-token email verification to `manual-regression`.
+- Added `npm run postman:verify-email` to read a pending token only from `legit_hair_app_test`, pass it to the saved Postman request, and avoid printing or persisting it.
+- Reset only the disposable legit_hair_app_test schema, applied migrations 001-014, reseeded synthetic fixtures and reset the local Paystack simulation.
+- No backend production behavior changed.
+
+FINAL FULL-REGRESSION RUN
+Command:
+postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i full-regression --env-var productImagePath=<synthetic-png-path> --no-report-events --timeout-request 10000
+
+Result: PASS (exit 0)
+- Requests: 110 passed, 0 failed
+- Test scripts: 110 passed, 0 failed
+- Prerequest scripts: 6 passed, 0 failed
+- Assertions: 214 passed, 0 failed
+- Duration: 14.1 seconds
+- Data received: approximately 66.81 KB
+- Average response: 37 ms
+- Minimum response: 4 ms
+- Maximum response: 197 ms
+
+EMAIL VERIFICATION RUN
+Command:
+$env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; npm run postman:verify-email
+
+Result: PASS (exit 0)
+- Requests: 1 passed, 0 failed
+- Test scripts: 1 passed, 0 failed
+- Assertions: 2 passed, 0 failed
+- Observed response: 200 OK
+- Token value was neither printed nor persisted.
+
+CONTROLLED DATABASE-OUTAGE CHECK
+- Request: `Manual - Ready - negative when MariaDB is stopped`
+- Result: NOT RUN in this follow-up.
+- Reason: it requires deliberately stopping MariaDB. The service was not interrupted solely to manufacture a passing result.
+- Expected result when intentionally executed in an approved maintenance window: 503 with the saved assertions passing.
+
+FINAL CLASSIFICATION
+- Passed: 111 of 112 maintained scenarios that can be safely executed with the local services online.
+- Not run/manual: 1 of 112, the intentional MariaDB-outage readiness scenario.
+- Failed after corrections: 0.
+- These results establish local synthetic MariaDB behavior only. They do not prove production MySQL, hosted capacity, provider dashboards, live credentials or live-money operation.
+
+POSTMAN CLOUD SYNC
+- Existing workspace: 633dcd6c-9b50-4e47-87fe-fbcb4f342c60
+- Existing collection ID: 57990495-3a655abb-56fc-4f3b-aef0-6a470480d6f9
+- Scoped diff before push: create 0, update 1 (`legit-hair`), delete 0.
+- Push result: created 0, updated 1, deleted 0, failed 0, blocked 0.
+- Remote verification: 239 requests and top-level folders auth, seller, admin, products, delivery, payment, finance, full-regression, manual-regression and frontend-handover.
+- Remote saved runtime token values: 0.
+- Existing environment ID 57990495-c6702645-8be8-4479-859a-e8188b759b06 was updated in place with `paystackRecipientCode=RCP_LOCALTEST001`; no duplicate environment was created.
+- The local Paystack stand-in was not uploaded as a cloud mock, and unrelated workspace resources were not changed.
