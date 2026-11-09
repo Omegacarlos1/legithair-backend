@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Legit Hair B12 Provider-Safe Smoke",
-    "description": "Read-focused staging smoke using guarded synthetic fixtures. It deliberately excludes payment/refund/payout provider calls and live money movement.",
+    "description": "Provider-safe staging smoke using guarded synthetic fixtures, including a self-cleaning M03 basket contract workflow. It deliberately excludes payment/refund/payout provider calls and live money movement.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -11,7 +11,9 @@
     { "key": "sellerToken", "value": "" },
     { "key": "adminToken", "value": "" },
     { "key": "financeToken", "value": "" },
-    { "key": "supportToken", "value": "" }
+    { "key": "supportToken", "value": "" },
+    { "key": "b05ProductOneId", "value": "40000000-0000-4000-8000-000000000051" },
+    { "key": "m03GuestBasketToken", "value": "" }
   ],
   "item": [
     {
@@ -38,6 +40,51 @@
       "name": "Read current customer",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/me" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer profile 200', () => pm.response.to.have.status(200));", "pm.test('customer role', () => pm.expect(pm.response.json().data.user.roles).to.include('customer'));"] } }]
+    },
+    {
+      "name": "M03 Create guest basket",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/baskets/guest" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest basket 201', () => pm.response.to.have.status(201));", "const body = pm.response.json(); pm.test('opaque guest credential returned', () => pm.expect(body.data.guestBasketToken.length).to.be.above(31)); pm.collectionVariables.set('m03GuestBasketToken', body.data.guestBasketToken);"] } }]
+    },
+    {
+      "name": "M03 Guest set item",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m03GuestBasketToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":2}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest item set 201', () => pm.response.to.have.status(201));", "pm.test('absolute quantity stored', () => pm.expect(pm.response.json().data.basket.items[0].quantity).to.eql(2));"] } }]
+    },
+    {
+      "name": "M03 Read guest basket",
+      "request": { "method": "GET", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m03GuestBasketToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/current" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest basket read 200', () => pm.response.to.have.status(200));", "const basket = pm.response.json().data.basket; pm.test('guest ownership and item restored', () => { pm.expect(basket.ownerType).to.eql('guest'); pm.expect(basket.items[0].productId).to.eql(pm.variables.get('b05ProductOneId')); pm.expect(basket.expiresAt).to.be.a('string'); });"] } }]
+    },
+    {
+      "name": "M03 Remove guest item",
+      "request": { "method": "DELETE", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m03GuestBasketToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest item removed 204', () => pm.response.to.have.status(204));"] } }]
+    },
+    {
+      "name": "M03 Read empty guest basket",
+      "request": { "method": "GET", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m03GuestBasketToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/current" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('empty guest basket read 200', () => pm.response.to.have.status(200));", "pm.test('guest basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([])); pm.collectionVariables.unset('m03GuestBasketToken');"] } }]
+    },
+    {
+      "name": "M03 Customer set item",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":2}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer item set 201', () => pm.response.to.have.status(201));", "pm.test('customer quantity stored', () => pm.expect(pm.response.json().data.basket.items.find(item => item.productId === pm.variables.get('b05ProductOneId')).quantity).to.eql(2));"] } }]
+    },
+    {
+      "name": "M03 Read customer basket",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/current" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer basket read 200', () => pm.response.to.have.status(200));", "const basket = pm.response.json().data.basket; pm.test('customer basket restored', () => { pm.expect(basket.ownerType).to.eql('customer'); pm.expect(basket.expiresAt).to.eql(null); pm.expect(basket.items.some(item => item.productId === pm.variables.get('b05ProductOneId'))).to.eql(true); });"] } }]
+    },
+    {
+      "name": "M03 Remove customer item",
+      "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer item removed 204', () => pm.response.to.have.status(204));"] } }]
+    },
+    {
+      "name": "M03 Read empty customer basket",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/current" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('empty customer basket read 200', () => pm.response.to.have.status(200));", "pm.test('customer basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([]));"] } }]
     },
     {
       "name": "Browse published catalogue",

@@ -1,6 +1,6 @@
 # B12 test results
 
-Date: 2026-10-30  
+Date: 2026-10-30; updated 2026-11-09
 Status: READY_FOR_REVIEW
 
 ## Final local results
@@ -11,20 +11,20 @@ Status: READY_FOR_REVIEW
 | TypeScript type check | PASS | Exit 0 |
 | Production build | PASS | Exit 0 |
 | Unit tests | PASS | 25 passed, 0 failed, 0 skipped |
-| Supertest API tests | PASS | 28 passed, 0 failed, 0 skipped |
-| MariaDB integration tests | PASS | 64 passed, 0 failed, 0 skipped in 53 seconds |
-| Socket.IO integration tests | PASS | 2 passed, 0 failed, 0 skipped in 4 seconds |
-| Total deterministic checks | PASS | 119 passed, 0 failed, 0 skipped |
+| Supertest API tests | PASS | 30 passed, 0 failed, 0 skipped |
+| MariaDB integration tests | PASS | 65 passed, 0 failed, 0 skipped in 57 seconds |
+| Socket.IO integration tests | PASS | 2 passed, 0 failed, 0 skipped in 5 seconds |
+| Total deterministic checks | PASS | 122 passed, 0 failed, 0 skipped |
 | Migration rollback/forward | PASS | Repeated complete down/up cycles on isolated MariaDB |
 | Backup/restore rehearsal | PASS | Isolated restore, counts, rollback/up, final restore |
 | Operations snapshot | PASS | No overdue/stale/recovery conditions before load |
-| Provider-safe Postman smoke | PASS | 15 requests, 21 assertions, zero failures |
+| Provider-safe Postman smoke | PASS | Latest artifact: 24 requests, 37 assertions, zero failures |
 | 50-VU browsing pilot | PASS | p95 82 ms, 0% errors/failures |
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
 | Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
-| Frontend Postman handover folder | PASS | 15 requests, 15 test scripts, 21 assertions, zero final failures |
+| Frontend Postman handover folder | PASS | 24 requests, 24 test scripts, 37 assertions, zero final failures; includes nine-request M03 baskets workflow |
 | Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
 | Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
 | Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
@@ -60,9 +60,15 @@ The maintained collection now includes forgot-password, reset-password, and logi
 
 The ordinary focused MariaDB wrapper remained blocked before discovery by the established Windows `uv_os_get_passwd`/`ENOMEM` host condition. The documented shim executed the complete authentication file: both password-reset cases passed, followed later by an unrelated fake-email count failure (`11` passing, `1` failing) because six queued jobs had already been completed, consistent with another local email worker using the shared disposable schema. Process enumeration was denied by the host, so that inference was not promoted to a clean-suite claim. A grep-only rerun was rejected because the selected tests depend on customer setup performed by earlier tests in the same file. See [password-recovery Postman evidence](evidence/B12/password-recovery-postman.txt).
 
+## M03 basket handover follow-up (2026-11-09)
+
+The existing runtime routes were confirmed rather than reimplemented: `GET /api/v1/baskets/current` and `DELETE /api/v1/baskets/items/:productId`. API coverage now includes missing and ambiguous owner credentials. MariaDB coverage reads and removes guest and customer lines, rejects cross-owner removal, confirms empty-basket reads, and confirms repeated removal returns `404 BASKET_ITEM_NOT_FOUND`.
+
+ESLint, type checking, build, 25 unit tests, 30 API tests, 65 MariaDB integration tests, and 2 Socket.IO tests passed with zero assertion failures or skips. The normal tsx npm wrappers again stopped before discovery on the known host `uv_os_get_passwd`/`ENOMEM` condition; the established process-local `os.userInfo` shim ran the unchanged test files. OpenAPI 3.1 syntax lint reported no issues, the maintained and smoke Postman JSON parsed, and both the standalone smoke and maintained `frontend-handover` folder passed 24/24 requests and 37/37 assertions. See [M03 handover evidence](evidence/B12/m03-basket-handover.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), and [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), and [M03 basket handover](evidence/B12/m03-basket-handover.txt).
 

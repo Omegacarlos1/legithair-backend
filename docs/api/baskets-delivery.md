@@ -10,6 +10,73 @@ Authenticated customers use `Authorization: Bearer <access-token>`. Guests first
 
 `POST /api/v1/baskets/merge` requires customer authentication plus the guest header. Duplicate products are summed inside one transaction. The entire merge fails if any combined quantity exceeds 20, the basket would exceed 50 lines, or an item is unavailable. Replaying the same guest merge returns the already-merged customer basket without adding quantities again.
 
+## M03 basket read and removal contract
+
+Both guest and authenticated customer baskets use the same read route:
+
+```http
+GET /api/v1/baskets/current
+Authorization: Bearer <customer-access-token>
+```
+
+or, for a guest:
+
+```http
+GET /api/v1/baskets/current
+X-Guest-Basket-Token: <opaque-guest-basket-token>
+```
+
+Exactly one credential is allowed. Supplying neither returns `401 BASKET_CREDENTIAL_REQUIRED`; supplying both returns `400 AMBIGUOUS_BASKET_OWNER`. A valid customer with no previous basket receives `200` with a newly created empty basket. A missing, expired, or already-merged guest credential returns `401 INVALID_GUEST_BASKET`.
+
+The `200` response uses the standard success envelope. Money values are integer NGN minor units:
+
+```json
+{
+  "success": true,
+  "data": {
+    "basket": {
+      "id": "<uuid>",
+      "ownerType": "guest",
+      "status": "active",
+      "expiresAt": "2026-12-09T10:00:00.000Z",
+      "items": [
+        {
+          "productId": "<uuid>",
+          "name": "Example Wig",
+          "seller": { "id": "<uuid>", "businessName": "Example Seller" },
+          "quantity": 2,
+          "observedPriceMinor": 100000,
+          "currentPriceMinor": 100000,
+          "lineTotalMinor": 200000,
+          "priceChanged": false,
+          "available": true,
+          "stockQuantity": 10
+        }
+      ],
+      "totals": { "currency": "NGN", "itemsSubtotalMinor": 200000 },
+      "createdAt": "2026-11-09T10:00:00.000Z",
+      "updatedAt": "2026-11-09T10:00:00.000Z"
+    }
+  },
+  "meta": { "requestId": "<request-id>" }
+}
+```
+
+Customer baskets return `ownerType: "customer"` and `expiresAt: null`. Empty baskets return `items: []` and an `itemsSubtotalMinor` of `0`.
+
+Remove a line by product ID, not by a basket-line index:
+
+```http
+DELETE /api/v1/baskets/items/<product-uuid>
+X-Guest-Basket-Token: <opaque-guest-basket-token>
+```
+
+The customer form uses `Authorization` instead. Success is `204 No Content` with an empty response body. Removing an absent line returns `404 BASKET_ITEM_NOT_FOUND`; the frontend should re-read the basket because its local state is stale. An invalid product UUID returns `400 VALIDATION_ERROR`. Ownership is derived only from the credential, so one customer or guest cannot remove another owner's line.
+
+## Approved browser persistence
+
+The header-based M03 frontend may keep the raw guest credential in same-origin `localStorage` under `legitHair.guestBasketToken.v1`, storing only `{ "token": "...", "expiresAt": "..." }`. Create it lazily, validate it with the current-basket read on startup, never place it in a URL or logs, and remove it after successful login merge, local/server expiry, explicit local reset, or `401 INVALID_GUEST_BASKET`. Retain it across network and `5xx` failures. While authenticated, send only the bearer token except for the merge request. The complete security and cross-tab lifecycle is fixed by [ADR 0014](../decisions/0014-guest-basket-browser-persistence.md).
+
 ## Routes
 
 | Route | Credential | Purpose |

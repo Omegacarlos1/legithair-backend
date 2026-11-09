@@ -216,12 +216,22 @@ paths:
     post:
       summary: Create an expiring guest basket and return its raw credential once
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
-      responses: { '201': { description: Guest basket created }, '429': { description: Rate limited } }
+      responses:
+        '201':
+          description: Guest basket created; the raw credential is returned only in this response
+          content: { application/json: { schema: { $ref: '#/components/schemas/GuestBasketCreated' } } }
+        '429': { description: Rate limited }
   /api/v1/baskets/current:
     get:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Read the current isolated customer or guest basket
-      responses: { '200': { description: Basket with observed/current prices and availability }, '401': { description: 'Missing, invalid, or expired credential' } }
+      description: Send exactly one owner credential. A customer with no prior basket receives a newly created empty basket.
+      responses:
+        '200':
+          description: Basket with observed/current prices and availability
+          content: { application/json: { schema: { $ref: '#/components/schemas/BasketResponse' } } }
+        '400': { description: Both customer and guest credentials were supplied }
+        '401': { description: 'Missing, invalid, expired, or merged guest credential; or invalid customer bearer token' }
   /api/v1/baskets/items:
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -233,7 +243,12 @@ paths:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Remove one product from the current basket
       parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '204': { description: Removed }, '404': { description: Basket item not found } }
+      description: Ownership is derived from exactly one customer or guest credential. The operation returns no response body.
+      responses:
+        '204': { description: Basket line removed; response body is empty }
+        '400': { description: Invalid product UUID or both owner credentials supplied }
+        '401': { description: 'Missing, invalid, or expired owner credential' }
+        '404': { description: Basket or basket line not found; re-read because client state is stale }
   /api/v1/baskets/refresh:
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -574,6 +589,76 @@ components:
     guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
     orderTrackingAuth: { type: apiKey, in: header, name: X-Order-Tracking-Token }
   schemas:
+    GuestBasketCreated:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [basketId, guestBasketToken, expiresInDays]
+          additionalProperties: false
+          properties:
+            basketId: { type: string, format: uuid }
+            guestBasketToken: { type: string, minLength: 32, maxLength: 200, description: Opaque bearer credential returned once; never put it in a URL or log. }
+            expiresInDays: { type: integer, minimum: 1, maximum: 90 }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    BasketResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [basket]
+          additionalProperties: false
+          properties: { basket: { $ref: '#/components/schemas/Basket' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Basket:
+      type: object
+      required: [id, ownerType, status, expiresAt, items, totals, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        ownerType: { type: string, enum: [guest, customer] }
+        status: { const: active }
+        expiresAt: { type: [string, 'null'], format: date-time, description: Null for customer baskets. }
+        items: { type: array, items: { $ref: '#/components/schemas/BasketItem' } }
+        totals:
+          type: object
+          required: [currency, itemsSubtotalMinor]
+          additionalProperties: false
+          properties:
+            currency: { const: NGN }
+            itemsSubtotalMinor: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BasketItem:
+      type: object
+      required: [productId, name, seller, quantity, observedPriceMinor, currentPriceMinor, lineTotalMinor, priceChanged, available, stockQuantity]
+      additionalProperties: false
+      properties:
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        seller:
+          type: object
+          required: [id, businessName]
+          additionalProperties: false
+          properties: { id: { type: string, format: uuid }, businessName: { type: string } }
+        quantity: { type: integer, minimum: 1, maximum: 20 }
+        observedPriceMinor: { type: integer, minimum: 0 }
+        currentPriceMinor: { type: integer, minimum: 0 }
+        lineTotalMinor: { type: integer, minimum: 0 }
+        priceChanged: { type: boolean }
+        available: { type: boolean }
+        stockQuantity: { type: integer, minimum: 0 }
+    ResponseMeta:
+      type: object
+      required: [requestId]
+      additionalProperties: false
+      properties: { requestId: { type: string } }
     InitializePayment:
       type: object
       required: [orderId]

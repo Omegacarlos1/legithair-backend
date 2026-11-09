@@ -1,0 +1,54 @@
+B12 M03 basket handover evidence
+Date: 2026-11-09
+Status: local synthetic verification only; B12 remains READY_FOR_REVIEW
+
+SCOPE
+- Confirmed the pre-existing guest/customer basket read route: GET /api/v1/baskets/current.
+- Confirmed the pre-existing owner-scoped removal route: DELETE /api/v1/baskets/items/:productId.
+- Published exact response/error behavior and ADR 0014 browser persistence rules.
+- Added missing/ambiguous credential, guest/customer removal, repeated removal, and cross-owner regression assertions.
+- Added nine self-cleaning M03 requests under frontend-handover > m03-baskets.
+- No runtime source, schema migration, provider call, or live-money behavior changed.
+
+STATIC AND CONTRACT CHECKS
+- npm run postman:organize: PASS; maintained collection has 254 requests and the M03 handover subfolder has 9.
+- npm run lint: PASS.
+- npm run typecheck: PASS.
+- npm run build: PASS.
+- postman spec lint docs/api/openapi.yaml --issueType syntax --no-report-events: PASS; OpenAPI 3.1, no issues.
+- Main collection, B12 smoke, and Local environment JSON parsing: PASS.
+
+NORMAL WRAPPER DIAGNOSTIC
+- npm run test:unit: HOST BLOCKED before discovery by the established Windows uv_os_get_passwd/ENOMEM condition.
+- npm run test:api: HOST BLOCKED before discovery by the same condition.
+- No application assertion ran or failed in those wrapper attempts.
+
+ESTABLISHED SHIM RESULTS
+The documented process-local os.userInfo shim loaded the same tsx/cjs Mocha files.
+- Unit and API: 55 passing (25 unit, 30 API), 0 failing, 0 skipped.
+- Focused baskets MariaDB file: 7 passing, 0 failing, 0 skipped.
+- Complete MariaDB integration suite against legit_hair_app_test / local MariaDB: 65 passing in 57 seconds, 0 failing, 0 skipped.
+- Socket.IO suite: 2 passing in 5 seconds, 0 failing, 0 skipped.
+- Total deterministic result: 122 passing, 0 failing, 0 skipped.
+
+DATABASE AND FIXTURES
+- Target: legit_hair_app_test only.
+- EMAIL_PROVIDER=fake; no provider network call.
+- Complete integration runs repeatedly rolled all migrations down/up in the disposable schema.
+- Guarded seed: PASS; 6 synthetic users, 2 synthetic approved sellers, and 2 synthetic checkout products.
+- Production MySQL: NOT RUN. Local MariaDB evidence is not MySQL compatibility proof.
+
+POSTMAN
+Standalone command:
+postman collection run postman/B12_Smoke.postman_collection.json -e postman/Local.postman_environment.json --no-report-events --timeout-request 5000
+Result: PASS; 24/24 requests, 24/24 test scripts, 37/37 assertions, zero failures.
+
+Maintained handover command:
+postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --no-report-events --timeout-request 5000
+Result: PASS; 24/24 requests, 24/24 test scripts, 37/37 assertions, zero failures in 3.9 seconds. Average 60 ms; minimum 8 ms; maximum 227 ms.
+
+The Postman feature-flag lookup reported an offline AggregateError, but local collection execution completed with exit 0. No run was published. Guest and customer lines were removed by the workflow, and the raw guest token was unset at the end of its flow. No token value was committed.
+
+LIMITATIONS
+- This proves local synthetic API behavior and maintained contract samples only.
+- It does not prove frontend storage implementation, frontend rendering, production MySQL, hosted deployment/capacity, provider readiness, or owner B12 acceptance.

@@ -15,10 +15,11 @@ Status: READY_FOR_REVIEW on 2026-10-30; owner acceptance is not inferred.
 - Added a 15-request `frontend-handover` folder sourced from the provider-safe B12 smoke. Customer, seller, admin, finance, and support logins capture tokens only for the active run; the final local folder run passed 21/21 assertions without persisting token values.
 - Added a dependency-ordered `full-regression` folder with 110 safely runnable requests and a two-request `manual-regression` folder for externally controlled cases. A clean isolated run passed 110/110 requests and 214/214 assertions; the separately captured fake-email verification passed 2/2 assertions. The MariaDB-outage readiness request remains explicitly NOT RUN. The same cloud `legit-hair` collection was updated in place to 239 requests, and the existing local environment received the validated synthetic payout-recipient value; no duplicate or saved token was introduced.
 - On 2026-11-09, added the previously missing password-recovery Postman samples under `auth > password-recovery`: enumeration-safe forgot-password, token consumption, and login confirmation. The one-time-token workflow is manual-only, the environment exports an empty token placeholder, and the maintained local collection now contains 245 requests after deterministic organization. The saved forgot-password request passed 2/2 assertions against the running local backend; B12 remains READY_FOR_REVIEW.
+- On 2026-11-09, closed the frontend M03 basket handover gap without changing runtime routes or schema. Published exact guest/customer basket-read and item-removal contracts, approved the versioned same-origin guest-token persistence lifecycle in ADR 0014, added focused ownership/regression checks, and added a self-cleaning nine-request `frontend-handover > m03-baskets` workflow. The maintained collection now contains 254 requests; the complete 24-request handover passed 37/37 assertions. B12 remains READY_FOR_REVIEW.
 
 ## Verification summary
 
-Final deterministic regression: 119 passing (25 unit, 28 API, 64 MariaDB integration, 2 Socket.IO), zero failing/skipped. Build/static checks, isolated restore, operations check, 15-request/21-assertion smoke, final load profiles, OpenAPI lint, JSON parsing, diff whitespace check, and dependency audit passed. Browsing p95 was 82 ms at 50 VUs; checkout p95 was 89 ms at 10 VUs, both with 0% request and assertion failures. Full detail is in [B12 test results](B12-test-results.md).
+Latest deterministic regression: 122 passing (25 unit, 30 API, 65 MariaDB integration, 2 Socket.IO), zero failing/skipped. Build/static checks, isolated restore, operations check, the latest 24-request/37-assertion handover, final load profiles, OpenAPI lint, JSON parsing, diff whitespace check, and dependency audit passed. Browsing p95 was 82 ms at 50 VUs; checkout p95 was 89 ms at 10 VUs, both with 0% request and assertion failures. Full detail is in [B12 test results](B12-test-results.md).
 
 ## Migration, rollback, and recovery
 
@@ -34,7 +35,7 @@ Do not use down migrations as routine production rollback; they destroy mileston
 4. Run the documented fixed browsing and checkout commands in the performance evidence. Load only an isolated target with explicit authority.
 5. The main B01-B12 collection remains the detailed manual workflow. Provider refund/payout/payment requests must not be run against live accounts without separate authorization.
 6. In Postman, select the `Legit Hair Local` environment before running the `legit-hair` collection. Run `npm run postman:organize` after adding maintained samples so every request is assigned to exactly one domain folder before export or cloud sync.
-7. Frontend should run the complete `frontend-handover` folder and require 15 requests and 21 assertions with zero failures; see [frontend Postman handover](../operations/frontend-postman-handover.md).
+7. Frontend should run the complete `frontend-handover` folder and require 24 requests and 37 assertions with zero failures. M03-specific checks are under `frontend-handover > m03-baskets`; see [frontend Postman handover](../operations/frontend-postman-handover.md).
 8. For complete synthetic backend verification, run `full-regression`, then `npm run postman:verify-email`. Require 111 executed requests and 216 assertions with zero failures. Treat the separate database-outage readiness request as NOT RUN until MariaDB is intentionally stopped in an approved test window.
 9. For password recovery, set `passwordResetEmail`, send the request under `auth > password-recovery`, copy the one-hour token into the runtime-only `passwordResetToken`, then send reset and login confirmation in order. These requests are also visible under `manual-regression`; rerun `npm run seed:test` after changing the seeded fixture password.
 
@@ -46,6 +47,7 @@ Do not use down migrations as routine production rollback; they destroy mileston
 - Contention hardening: `src/baskets/service.ts`, `src/orders/service.ts`.
 - Verification: focused unit/API tests and B12 evidence.
 - Handover/contracts: ADR 0013, `docs/operations/`, API docs/OpenAPI, README, Postman collection, milestone tracker, and AGENTS status.
+- M03 basket handover follow-up: ADR 0014, basket/OpenAPI contracts, focused API/MariaDB tests, the nine-request Postman workflow, and recorded local evidence. No runtime or migration file changed.
 
 ## Open release gates
 
@@ -58,7 +60,7 @@ Do not use down migrations as routine production rollback; they destroy mileston
 
 ## Pull request description
 
-Harden the B01-B11 backend for B12 review with exact CORS/security/proxy controls, safe body errors, operations checks, guarded backup/restore, deployment and handover runbooks, provider-safe Postman smoke, and fixed 50/10-VU pilot profiles. Add bounded quote/order deadlock retries discovered by load. Final local evidence is 119 deterministic checks, successful isolated restore, browsing p95 82 ms, checkout p95 89 ms, zero final load errors/assertion failures, clean OpenAPI lint, and zero npm-audit findings. Production MySQL, hosted capacity, policy/provider/infrastructure gates, training, deployment, and live money movement remain unapproved.
+Harden the B01-B11 backend for B12 review with exact CORS/security/proxy controls, safe body errors, operations checks, guarded backup/restore, deployment and handover runbooks, provider-safe Postman smoke, and fixed 50/10-VU pilot profiles. Add bounded quote/order deadlock retries discovered by load, then close the M03 frontend basket handover with explicit read/remove contracts, approved guest-token persistence rules, focused ownership regression, and a self-cleaning Postman workflow. Latest local evidence is 122 deterministic checks, a 24-request/37-assertion handover, successful isolated restore, browsing p95 82 ms, checkout p95 89 ms, zero final load errors/assertion failures, clean OpenAPI lint, and zero npm-audit findings. Production MySQL, hosted capacity, policy/provider/infrastructure gates, training, deployment, and live money movement remain unapproved.
 
 ## Final backend handover
 
