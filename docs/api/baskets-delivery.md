@@ -110,7 +110,23 @@ Authenticated delivery request:
 }
 ```
 
-Guest delivery uses an inline `address` instead of `addressId`. Pickup uses `{ "deliveryMethod": "pickup", "pickupLocationId": "..." }`. Delivery and pickup cannot be mixed.
+Guest delivery uses an inline `address` instead of `addressId`. Delivery and pickup cannot be mixed.
+
+Pickup location IDs come from `GET /api/v1/delivery-options`. Submit the selected active location as follows for either an authenticated customer or a guest basket owner:
+
+```http
+POST /api/v1/checkout/quotes
+Authorization: Bearer <access-token>
+Idempotency-Key: pickup-quote-20261109-001
+Content-Type: application/json
+
+{
+  "deliveryMethod": "pickup",
+  "pickupLocationId": "60000000-0000-4000-8000-000000000005"
+}
+```
+
+A guest sends `X-Guest-Basket-Token` instead of `Authorization`. Do not send `zoneId`, `addressId`, or an inline `address` for pickup. The server rejects an inactive or unknown location with `409 PICKUP_LOCATION_UNAVAILABLE` and snapshots the pickup name, address, fee, and estimate into the quote so later admin edits cannot change an existing quote.
 
 The server verifies that delivery addresses are in Nigeria and Lagos and that the normalized city/area belongs to the selected active zone. Each distinct seller receives one snapshotted zone-fee allocation. The company retains delivery fees, and they are excluded from seller commission and earnings.
 

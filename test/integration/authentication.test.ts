@@ -68,9 +68,33 @@ describe('authentication and customer accounts against MariaDB', function () {
     const me = await api.get('/api/v1/me').set('authorization', `Bearer ${accessToken}`).expect(200);
     assert.equal(me.body.data.user.id, customerId); assert.deepEqual(me.body.data.user.roles, ['customer']);
   });
-  it('enforces address ownership', async () => {
+  it('lists, updates and selects only the customer\'s own saved addresses', async () => {
     otherCustomerId = await registerAndVerify('customer.two@example.test', 'Customer Two');
-    await api.post('/api/v1/me/addresses').set('authorization', `Bearer ${accessToken}`).send({ label: 'Home', recipientName: 'Customer One', phone: '+2348000000000', line1: '1 Synthetic Street', city: 'Ikeja', state: 'Lagos', isDefault: true }).expect(201);
+    const otherLogin = await api.post('/api/v1/auth/login').send({ email: 'customer.two@example.test', password }).expect(200);
+    const otherAddress = await api.post('/api/v1/me/addresses').set('authorization', `Bearer ${otherLogin.body.data.tokens.accessToken}`).send({ label: 'Other home', recipientName: 'Customer Two', phone: '+2348000000001', line1: '3 Synthetic Street', city: 'Ikeja', state: 'Lagos', isDefault: true }).expect(201);
+    const first = await api.post('/api/v1/me/addresses').set('authorization', `Bearer ${accessToken}`).send({ label: 'Home', recipientName: 'Customer One', phone: '+2348000000000', line1: '1 Synthetic Street', city: 'Ikeja', state: 'Lagos', isDefault: true }).expect(201);
+    const second = await api.post('/api/v1/me/addresses').set('authorization', `Bearer ${accessToken}`).send({ label: 'Office', recipientName: 'Customer One', phone: '+2348000000000', line1: '2 Synthetic Street', city: 'Ikeja', state: 'Lagos', isDefault: true }).expect(201);
+    const updated = await api.patch(`/api/v1/me/addresses/${first.body.data.id}`).set('authorization', `Bearer ${accessToken}`).send({ label: 'Primary home', line2: 'Flat 2' }).expect(200);
+    assert.equal(updated.body.data.address.label, 'Primary home'); assert.equal(updated.body.data.address.line2, 'Flat 2');
+    await api.patch(`/api/v1/me/addresses/${first.body.data.id}`).set('authorization', `Bearer ${accessToken}`).send({}).expect(400);
+    await api.put(`/api/v1/me/addresses/${first.body.data.id}/default`).set('authorization', `Bearer ${accessToken}`).send({ isDefault: true }).expect(400);
+    const concurrentSelections = await Promise.all([
+      api.put(`/api/v1/me/addresses/${first.body.data.id}/default`).set('authorization', `Bearer ${accessToken}`).send({}),
+      api.put(`/api/v1/me/addresses/${second.body.data.id}/default`).set('authorization', `Bearer ${accessToken}`).send({})
+    ]);
+    assert.deepEqual(concurrentSelections.map((response) => response.status), [200, 200]);
+    const afterRace = await api.get('/api/v1/me/addresses').set('authorization', `Bearer ${accessToken}`).expect(200);
+    assert.equal(afterRace.body.data.addresses.filter((address: { isDefault: boolean }) => address.isDefault).length, 1);
+    const selected = await api.put(`/api/v1/me/addresses/${first.body.data.id}/default`).set('authorization', `Bearer ${accessToken}`).send({}).expect(200);
+    assert.equal(selected.body.data.address.isDefault, true);
+    const listed = await api.get('/api/v1/me/addresses').set('authorization', `Bearer ${accessToken}`).expect(200);
+    assert.equal(listed.body.data.addresses.length, 2); assert.equal(listed.body.data.addresses[0].id, first.body.data.id);
+    assert.equal(listed.body.data.addresses.find((address: { id: string }) => address.id === second.body.data.id).isDefault, false);
+    await api.patch(`/api/v1/me/addresses/${second.body.data.id}`).set('authorization', `Bearer ${accessToken}`).send({ line2: null }).expect(200);
+    await api.patch(`/api/v1/me/addresses/${otherAddress.body.data.id}`).set('authorization', `Bearer ${accessToken}`).send({ label: 'Cross-owner edit' }).expect(404);
+    await api.put(`/api/v1/me/addresses/${otherAddress.body.data.id}/default`).set('authorization', `Bearer ${accessToken}`).send({}).expect(404);
+    await api.patch('/api/v1/me/addresses/80000000-0000-4000-8000-000000000099').set('authorization', `Bearer ${accessToken}`).send({ label: 'Missing' }).expect(404);
+    await api.put('/api/v1/me/addresses/80000000-0000-4000-8000-000000000099/default').set('authorization', `Bearer ${accessToken}`).send({}).expect(404);
     const forbidden = await api.get(`/api/v1/users/${otherCustomerId}/addresses`).set('authorization', `Bearer ${accessToken}`).expect(403); assert.equal(forbidden.body.error.code, 'FORBIDDEN');
   });
   it('rotates refresh tokens and revokes the family on reuse', async () => {

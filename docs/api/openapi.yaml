@@ -58,11 +58,26 @@ paths:
     get:
       security: [{ bearerAuth: [] }]
       summary: List current customer's addresses
-      responses: { '200': { description: Address list } }
+      responses: { '200': { description: 'Address list, selected default first', content: { application/json: { schema: { $ref: '#/components/schemas/AddressListResponse' } } } } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create current customer's address
-      responses: { '201': { description: Address created }, '400': { description: Invalid input } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateAddress' } } } }
+      responses: { '201': { description: Address created, content: { application/json: { schema: { $ref: '#/components/schemas/AddressCreatedResponse' } } } }, '400': { description: Invalid input } }
+  /api/v1/me/addresses/{addressId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update an address owned by the current customer
+      parameters: [{ name: addressId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAddress' } } } }
+      responses: { '200': { description: Updated owned address, content: { application/json: { schema: { $ref: '#/components/schemas/AddressResponse' } } } }, '400': { description: Invalid or empty update }, '404': { description: Address not found or not owned } }
+  /api/v1/me/addresses/{addressId}/default:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Select one owned address as the current customer's default
+      parameters: [{ name: addressId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '200': { description: Address selected and prior default cleared atomically, content: { application/json: { schema: { $ref: '#/components/schemas/AddressResponse' } } } }, '404': { description: Address not found or not owned } }
   /api/v1/sellers:
     post:
       security: [{ bearerAuth: [] }]
@@ -301,7 +316,14 @@ paths:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Create an immutable expiring NGN quote with per-seller delivery allocation
       parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutQuoteInput' } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckoutQuoteInput' }
+            examples:
+              savedAddressDelivery: { summary: Authenticated delivery using an owned saved address, value: { deliveryMethod: delivery, zoneId: 50000000-0000-4000-8000-000000000001, addressId: 80000000-0000-4000-8000-000000000005 } }
+              pickup: { summary: Customer or guest pickup using an active location returned by delivery options, value: { deliveryMethod: pickup, pickupLocationId: 60000000-0000-4000-8000-000000000005 } }
       responses: { '201': { description: Quote created }, '200': { description: Idempotent replay }, '400': { description: Invalid request or idempotency key }, '409': { description: 'Stale price, unavailable product, unsupported address, or key conflict' } }
   /api/v1/checkout/quotes/{quoteId}:
     get:
@@ -589,6 +611,72 @@ components:
     guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
     orderTrackingAuth: { type: apiKey, in: header, name: X-Order-Tracking-Token }
   schemas:
+    Address:
+      type: object
+      required: [id, label, recipientName, phone, line1, line2, city, state, countryCode, isDefault]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        recipientName: { type: string }
+        phone: { type: string }
+        line1: { type: string }
+        line2: { type: [string, 'null'] }
+        city: { type: string }
+        state: { type: string }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
+        isDefault: { type: boolean }
+    AddressListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [addresses], additionalProperties: false, properties: { addresses: { type: array, items: { $ref: '#/components/schemas/Address' } } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AddressCreatedResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [id], additionalProperties: false, properties: { id: { type: string, format: uuid } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AddressResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [address], additionalProperties: false, properties: { address: { $ref: '#/components/schemas/Address' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateAddress:
+      type: object
+      required: [label, recipientName, phone, line1, city, state]
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 50 }
+        recipientName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        line1: { type: string, minLength: 3, maxLength: 200 }
+        line2: { type: string, maxLength: 200 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100 }
+        countryCode: { type: string, minLength: 2, maxLength: 2, default: NG }
+        isDefault: { type: boolean, default: false }
+    UpdateAddress:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 50 }
+        recipientName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        line1: { type: string, minLength: 3, maxLength: 200 }
+        line2: { type: [string, 'null'], maxLength: 200 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100 }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
     GuestBasketCreated:
       type: object
       required: [success, data, meta]
