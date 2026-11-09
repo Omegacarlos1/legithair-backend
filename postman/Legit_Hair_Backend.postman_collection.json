@@ -266,6 +266,107 @@
           ]
         },
         {
+          "name": "password-recovery",
+          "item": [
+            {
+              "name": "B02 Forgot password - enumeration safe",
+              "request": {
+                "description": "Queues a one-hour password-reset token without revealing whether the account exists. For Gmail testing, set passwordResetEmail to a registered inbox and run the email worker. For the seeded .test fixture, capture the token only from the isolated test database.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"{{passwordResetEmail}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/forgot-password"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 202', () => pm.response.to.have.status(202));",
+                      "pm.test('enumeration-safe response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.message).to.include('If the account exists'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "B02 Reset password token",
+              "request": {
+                "description": "Consumes the one-hour, single-use passwordResetToken and revokes existing access and refresh sessions. Never save a real token in the exported environment.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"token\":\"{{passwordResetToken}}\",\"password\":\"{{passwordResetNewPassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/reset-password"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "if (!pm.environment.get('passwordResetToken')) { throw new Error('Set passwordResetToken from the reset email or isolated test database before sending this request.'); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('password reset confirmed', () => pm.expect(pm.response.json().data.reset).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "B02 Password reset login confirmation",
+              "request": {
+                "description": "Confirms the new password works and replaces the local runtime tokens. Rerun npm run seed:test afterward when using the seeded fixture to restore FixturePass123!.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"{{passwordResetEmail}}\",\"password\":\"{{passwordResetNewPassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json(); pm.test('reset account returned', () => { pm.expect(b.data.user.email).to.eql(pm.environment.get('passwordResetEmail').toLowerCase()); pm.expect(b.data.user.emailVerified).to.eql(true); });",
+                      "pm.environment.set('accessToken', b.data.tokens.accessToken); pm.environment.set('refreshToken', b.data.tokens.refreshToken); pm.environment.set('customerId', b.data.user.id);"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "sessions",
           "item": [
             {
@@ -7007,6 +7108,102 @@
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
                       "pm.test('email verified', () => pm.expect(pm.response.json().data.verified).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Manual - B02 Forgot password - enumeration safe",
+              "request": {
+                "description": "Queues a one-hour password-reset token without revealing whether the account exists. For Gmail testing, set passwordResetEmail to a registered inbox and run the email worker. For the seeded .test fixture, capture the token only from the isolated test database.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"{{passwordResetEmail}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/forgot-password"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 202', () => pm.response.to.have.status(202));",
+                      "pm.test('enumeration-safe response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.message).to.include('If the account exists'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Manual - B02 Reset password token",
+              "request": {
+                "description": "Consumes the one-hour, single-use passwordResetToken and revokes existing access and refresh sessions. Never save a real token in the exported environment.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"token\":\"{{passwordResetToken}}\",\"password\":\"{{passwordResetNewPassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/reset-password"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "if (!pm.environment.get('passwordResetToken')) { throw new Error('Set passwordResetToken from the reset email or isolated test database before sending this request.'); }"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.test('password reset confirmed', () => pm.expect(pm.response.json().data.reset).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Manual - B02 Password reset login confirmation",
+              "request": {
+                "description": "Confirms the new password works and replaces the local runtime tokens. Rerun npm run seed:test afterward when using the seeded fixture to restore FixturePass123!.",
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"{{passwordResetEmail}}\",\"password\":\"{{passwordResetNewPassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "const b = pm.response.json(); pm.test('reset account returned', () => { pm.expect(b.data.user.email).to.eql(pm.environment.get('passwordResetEmail').toLowerCase()); pm.expect(b.data.user.emailVerified).to.eql(true); });",
+                      "pm.environment.set('accessToken', b.data.tokens.accessToken); pm.environment.set('refreshToken', b.data.tokens.refreshToken); pm.environment.set('customerId', b.data.user.id);"
                     ]
                   }
                 }

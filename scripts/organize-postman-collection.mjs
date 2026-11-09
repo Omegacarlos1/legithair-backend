@@ -35,7 +35,7 @@ const topLevelOrder = [
 ];
 
 const subfolderOrder = {
-  auth: ['health', 'registration', 'sessions', 'account'],
+  auth: ['health', 'registration', 'password-recovery', 'sessions', 'account'],
   seller: ['onboarding', 'catalog', 'fulfilment', 'earnings'],
   admin: [
     'seller-management',
@@ -106,6 +106,13 @@ const rules = [
     route: ['auth', 'registration'],
     matches: (name) =>
       /^B02 (Register|Resend verification|Verify email token)/.test(name),
+  },
+  {
+    route: ['auth', 'password-recovery'],
+    matches: (name) =>
+      /^B02 (Forgot password|Reset password|Password reset login confirmation)/.test(
+        name,
+      ),
   },
   {
     route: ['auth', 'sessions'],

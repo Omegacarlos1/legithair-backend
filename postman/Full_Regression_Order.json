@@ -2,7 +2,10 @@
   "description": "Execution order for the duplicated Postman regression folders. Automated requests run without changing host services; controlled requests remain visible but require an external condition or captured email token.",
   "manualRequests": [
     "Ready - negative when MariaDB is stopped",
-    "B02 Verify email token"
+    "B02 Verify email token",
+    "B02 Forgot password - enumeration safe",
+    "B02 Reset password token",
+    "B02 Password reset login confirmation"
   ],
   "requests": [
     "Health - positive",
