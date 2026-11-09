@@ -12,19 +12,19 @@ Status: READY_FOR_REVIEW
 | Production build | PASS | Exit 0 |
 | Unit tests | PASS | 25 passed, 0 failed, 0 skipped |
 | Supertest API tests | PASS | 30 passed, 0 failed, 0 skipped |
-| MariaDB integration tests | PASS | 65 passed, 0 failed, 0 skipped in 57 seconds |
-| Socket.IO integration tests | PASS | 2 passed, 0 failed, 0 skipped in 5 seconds |
+| MariaDB integration tests | PASS | Final run: 65 passed, 0 failed, 0 skipped in 39 seconds |
+| Socket.IO integration tests | PASS | Final isolated rerun: 2 passed, 0 failed, 0 skipped in 3 seconds; initial transient recorded below |
 | Total deterministic checks | PASS | 122 passed, 0 failed, 0 skipped |
 | Migration rollback/forward | PASS | Repeated complete down/up cycles on isolated MariaDB |
 | Backup/restore rehearsal | PASS | Isolated restore, counts, rollback/up, final restore |
 | Operations snapshot | PASS | No overdue/stale/recovery conditions before load |
-| Provider-safe Postman smoke | PASS | Latest artifact: 24 requests, 37 assertions, zero failures |
+| Provider-safe Postman smoke | PASS | Latest artifact: 30 requests, 47 assertions, zero failures |
 | 50-VU browsing pilot | PASS | p95 82 ms, 0% errors/failures |
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
 | Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
-| Frontend Postman handover folder | PASS | 24 requests, 24 test scripts, 37 assertions, zero final failures; includes nine-request M03 baskets workflow |
+| Frontend Postman handover folder | PASS | 30 requests, 30 test scripts, 47 assertions, zero failures; includes M03 baskets and M04 address/pickup workflows |
 | Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
 | Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
 | Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
@@ -66,9 +66,17 @@ The existing runtime routes were confirmed rather than reimplemented: `GET /api/
 
 ESLint, type checking, build, 25 unit tests, 30 API tests, 65 MariaDB integration tests, and 2 Socket.IO tests passed with zero assertion failures or skips. The normal tsx npm wrappers again stopped before discovery on the known host `uv_os_get_passwd`/`ENOMEM` condition; the established process-local `os.userInfo` shim ran the unchanged test files. OpenAPI 3.1 syntax lint reported no issues, the maintained and smoke Postman JSON parsed, and both the standalone smoke and maintained `frontend-handover` folder passed 24/24 requests and 37/37 assertions. See [M03 handover evidence](evidence/B12/m03-basket-handover.txt).
 
+## M04 saved-address and pickup-quote handover follow-up (2026-11-09)
+
+The backend already exposed owned address list/create and accepted `{ "deliveryMethod": "pickup", "pickupLocationId": "..." }`; the frontend gap was partly contract discoverability and partly missing address mutation operations. This follow-up adds owner-scoped address update and atomic default selection. Address mutation serializes on the owning user, concurrent default selections leave exactly one default, and cross-owner/unknown mutation returns `404 ADDRESS_NOT_FOUND`. No schema migration or business-policy value changed.
+
+The focused authentication integration file passed 12/12 against MariaDB, including creation/listing, nullable `line2`, update, concurrent selection, final deterministic selection, cross-owner denial, and unknown-ID denial. Final static/build checks passed; the complete deterministic suites finished at 25 unit, 30 API, 65 MariaDB integration, and 2 Socket.IO checks. The first Socket.IO attempt returned `false` once while recovering a stale outbox lease (1 pass, 1 fail); the immediate isolated rerun passed 2/2. The transient is recorded and was unrelated to the address/quote changes.
+
+OpenAPI 3.1 syntax lint reported no issues. The maintained collection organized to 260 requests. Both the standalone provider-safe smoke and `frontend-handover` folder passed 30/30 requests, 30/30 test scripts, and 47/47 assertions against the disposable MariaDB schema. Postman reported an offline feature-flag `AggregateError`, but local execution completed with exit 0. See [M04 handover evidence](evidence/B12/m04-address-pickup-handover.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), and [M03 basket handover](evidence/B12/m03-basket-handover.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), [M03 basket handover](evidence/B12/m03-basket-handover.txt), and [M04 address/pickup handover](evidence/B12/m04-address-pickup-handover.txt).
 

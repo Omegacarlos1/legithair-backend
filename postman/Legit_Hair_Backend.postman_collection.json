@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "legit-hair",
-    "description": "Maintained Legit Hair backend samples for milestones B01-B12.\n\nFolders are organized by API domain. Request names retain their milestone labels for traceability.\nThe full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.\nThe manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.\nThe frontend-handover folder contains the provider-safe role-login smoke and self-cleaning M03 guest/customer basket workflow that frontend can rerun without persisting tokens.\nSelect the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.\nProvider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.",
+    "description": "Maintained Legit Hair backend samples for milestones B01-B12.\n\nFolders are organized by API domain. Request names retain their milestone labels for traceability.\nThe full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.\nThe manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.\nThe frontend-handover folder contains the provider-safe role-login smoke, a self-cleaning M03 basket workflow, and a rerunnable M04 saved-address/pickup-quote workflow that removes its temporary basket line without persisting tokens.\nSelect the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.\nProvider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -7576,6 +7576,198 @@
                     "exec": [
                       "pm.test('empty customer basket read 200', () => pm.response.to.have.status(200));",
                       "pm.test('customer basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "m04-checkout",
+          "item": [
+            {
+              "name": "Handover - M04 List saved addresses",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me/addresses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('saved addresses 200', () => pm.response.to.have.status(200));",
+                      "pm.test('seeded address is selectable', () => pm.expect(pm.response.json().data.addresses.map(address => address.id)).to.include(pm.variables.get('b05AddressId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Update saved address",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"label\":\"B05 Home\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('saved address updated 200', () => pm.response.to.have.status(200));",
+                      "pm.test('owned address returned', () => pm.expect(pm.response.json().data.address.id).to.eql(pm.variables.get('b05AddressId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Select default address",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}/default"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('default address selected 200', () => pm.response.to.have.status(200));",
+                      "pm.test('selected address is default', () => pm.expect(pm.response.json().data.address.isDefault).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Customer set pickup item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup item set 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Create pickup quote",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m04QuoteKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"deliveryMethod\":\"pickup\",\"pickupLocationId\":\"{{b05PickupId}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/checkout/quotes"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m04QuoteKey', 'm04-pickup-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup quote 201', () => pm.response.to.have.status(201));",
+                      "const quote = pm.response.json().data.quote; pm.test('pickup selection snapshotted', () => { pm.expect(quote.deliveryMethod).to.eql('pickup'); pm.expect(quote.destination.method).to.eql('pickup'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Remove pickup item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup item removed 204', () => pm.response.to.have.status(204));",
+                      "pm.collectionVariables.unset('m04QuoteKey');"
                     ]
                   }
                 }

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Legit Hair B12 Provider-Safe Smoke",
-    "description": "Provider-safe staging smoke using guarded synthetic fixtures, including a self-cleaning M03 basket contract workflow. It deliberately excludes payment/refund/payout provider calls and live money movement.",
+    "description": "Provider-safe staging smoke using guarded synthetic fixtures, including a self-cleaning M03 basket workflow and a rerunnable M04 address/pickup-quote workflow that removes its temporary basket line. It deliberately excludes payment/refund/payout provider calls and live money movement.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,7 +13,10 @@
     { "key": "financeToken", "value": "" },
     { "key": "supportToken", "value": "" },
     { "key": "b05ProductOneId", "value": "40000000-0000-4000-8000-000000000051" },
-    { "key": "m03GuestBasketToken", "value": "" }
+    { "key": "b05AddressId", "value": "80000000-0000-4000-8000-000000000005" },
+    { "key": "b05PickupId", "value": "60000000-0000-4000-8000-000000000005" },
+    { "key": "m03GuestBasketToken", "value": "" },
+    { "key": "m04QuoteKey", "value": "" }
   ],
   "item": [
     {
@@ -85,6 +88,36 @@
       "name": "M03 Read empty customer basket",
       "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/current" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('empty customer basket read 200', () => pm.response.to.have.status(200));", "pm.test('customer basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([]));"] } }]
+    },
+    {
+      "name": "M04 List saved addresses",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/me/addresses" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('saved addresses 200', () => pm.response.to.have.status(200));", "pm.test('seeded address is selectable', () => pm.expect(pm.response.json().data.addresses.map(address => address.id)).to.include(pm.variables.get('b05AddressId')));"] } }]
+    },
+    {
+      "name": "M04 Update saved address",
+      "request": { "method": "PATCH", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"label\":\"B05 Home\"}" }, "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('saved address updated 200', () => pm.response.to.have.status(200));", "pm.test('owned address returned', () => pm.expect(pm.response.json().data.address.id).to.eql(pm.variables.get('b05AddressId')));"] } }]
+    },
+    {
+      "name": "M04 Select default address",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}/default" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('default address selected 200', () => pm.response.to.have.status(200));", "pm.test('selected address is default', () => pm.expect(pm.response.json().data.address.isDefault).to.eql(true));"] } }]
+    },
+    {
+      "name": "M04 Customer set pickup item",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('pickup item set 201', () => pm.response.to.have.status(201));"] } }]
+    },
+    {
+      "name": "M04 Create pickup quote",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Idempotency-Key", "value": "{{m04QuoteKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"pickup\",\"pickupLocationId\":\"{{b05PickupId}}\"}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('m04QuoteKey', 'm04-pickup-' + pm.variables.replaceIn('{{$randomUUID}}'));"] } }, { "listen": "test", "script": { "exec": ["pm.test('pickup quote 201', () => pm.response.to.have.status(201));", "const quote = pm.response.json().data.quote; pm.test('pickup selection snapshotted', () => { pm.expect(quote.deliveryMethod).to.eql('pickup'); pm.expect(quote.destination.method).to.eql('pickup'); });"] } }]
+    },
+    {
+      "name": "M04 Remove pickup item",
+      "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('pickup item removed 204', () => pm.response.to.have.status(204));", "pm.collectionVariables.unset('m04QuoteKey');"] } }]
     },
     {
       "name": "Browse published catalogue",

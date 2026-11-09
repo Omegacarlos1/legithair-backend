@@ -1,0 +1,64 @@
+B12 M04 SAVED-ADDRESS AND PICKUP-QUOTE HANDOVER EVIDENCE
+Date: 2026-11-09
+Status: LOCAL PASS; B12 remains READY_FOR_REVIEW pending explicit owner acceptance
+
+SCOPE VERIFIED
+- Existing GET/POST /api/v1/me/addresses behavior was retained and documented for frontend use.
+- Added PATCH /api/v1/me/addresses/:addressId for owner-scoped field updates.
+- Added PUT /api/v1/me/addresses/:addressId/default for atomic default selection.
+- Existing pickup quote input is now explicit: {"deliveryMethod":"pickup","pickupLocationId":"<active delivery-options ID>"}.
+- No schema migration, provider call, live credential, or business-policy default was added.
+
+STATIC, BUILD, AND CONTRACT CHECKS
+- npm run lint: PASS, exit 0.
+- npm run typecheck: PASS, exit 0.
+- npm run build: PASS, exit 0.
+- postman spec lint docs/api/openapi.yaml --issueType syntax --no-report-events: the first post-schema run caught one unquoted comma in an inline response description; after correction the final run passed as OpenAPI 3.1 with no issues.
+- Main collection, B12 smoke, and Local environment JSON parsing: PASS.
+- npm run postman:organize: PASS; maintained collection organized to 260 requests and the frontend-handover/m04-checkout folder contains 6 requests.
+- git diff --check: PASS; line-ending notices only.
+
+NORMAL WRAPPER DIAGNOSTIC
+- npm run test:unit and npm run test:api were attempted first.
+- Both stopped before discovery on this Windows host's established uv_os_get_passwd/ENOMEM condition inside tsx.
+- npm run seed:test hit the same pre-start condition.
+- The established process-local os.userInfo shim ran the unchanged test globs and guarded seed logic; no application assertion failed in the wrapper attempts.
+
+DETERMINISTIC TEST COMMANDS AND RESULTS
+- Unit equivalent:
+  node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/unit/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+  Result: 25 passing, 0 failing, 0 skipped.
+- API equivalent:
+  node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+  Result: 30 passing, 0 failing, 0 skipped.
+- Focused authentication MariaDB file with NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake, and empty PAYSTACK_SECRET_KEY:
+  node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/integration/authentication.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+  Result: 12 passing in 3 seconds, 0 failing, 0 skipped.
+  Coverage: create/list; update; line2 null clearing; concurrent default selection; final deterministic default; cross-owner mutation denial; unknown-ID denial.
+- Complete MariaDB suite under the same guarded environment:
+  node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+  Final result: 65 passing in 39 seconds, 0 failing, 0 skipped. Migrations were repeatedly rolled down/up only on legit_hair_app_test.
+- Socket.IO equivalent:
+  node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/socket/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+  First result: 1 passing, 1 failing when stale-outbox publishOne returned false.
+  Immediate isolated rerun: 2 passing in 3 seconds, 0 failing, 0 skipped. This unrelated transient is retained in evidence.
+
+POSTMAN SETUP
+- Guarded seed equivalent invoked seedTestFixtures() with NODE_ENV=test and DATABASE_NAME=legit_hair_app_test.
+  Result: 6 synthetic users, 2 synthetic approved sellers, 2 checkout products; PASS.
+- A local verification server used port 3104, the disposable MariaDB schema, fake email, and no Paystack secret. It was stopped after the runs.
+
+POSTMAN RUNS
+- Standalone provider-safe smoke:
+  postman collection run postman/B12_Smoke.postman_collection.json --env-var baseUrl=http://127.0.0.1:3104 --no-report-events --timeout-request 5000
+  Result: 30/30 requests, 30/30 test scripts, 47/47 assertions, zero failures; exit 0; 3.5 seconds.
+- Maintained frontend handover:
+  postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --env-var baseUrl=http://127.0.0.1:3104 --no-report-events --timeout-request 5000
+  Result: 30/30 requests, 30/30 test scripts, 47/47 assertions, zero failures; exit 0; 3.3 seconds.
+- The M04 flow listed the seeded address, applied an owner update, selected it as default, set a temporary customer basket line, created a pickup quote using b05PickupId, and removed the line.
+- Postman feature-flag lookup reported an offline AggregateError before each run; local collection execution still completed successfully.
+
+LIMITATIONS
+- MariaDB 10.4.32 is not production MySQL compatibility proof.
+- No hosted deployment, frontend rendering, provider dashboard, live account, or live money movement was exercised.
+- No owner acceptance is inferred. B12 remains READY_FOR_REVIEW.
