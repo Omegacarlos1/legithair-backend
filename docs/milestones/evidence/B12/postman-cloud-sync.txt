@@ -1,0 +1,97 @@
+B12 POSTMAN CLOUD ORGANIZATION FOLLOW-UP
+Date: 2026-11-02
+Status impact: none; B12 remains READY_FOR_REVIEW and is not accepted by this work.
+
+TARGETS
+- Workspace: 633dcd6c-9b50-4e47-87fe-fbcb4f342c60
+- Existing collection: legit-hair (57990495-3a655abb-56fc-4f3b-aef0-6a470480d6f9)
+- New environment: Legit Hair Local (57990495-c6702645-8be8-4479-859a-e8188b759b06)
+- The backend GitHub remote was registered with the existing Postman workspace for authenticated CLI synchronization.
+
+LOCAL ORGANIZATION
+Command: npm run postman:organize
+Result: PASS
+- Requests before: 112
+- Requests after: 112
+- Missing: 0
+- Duplicated/ambiguous: 0
+- Top-level folders: auth, seller, admin, products, delivery, payment, finance
+- Query URL/query-parameter definitions were normalized for clean v3 linting.
+
+POSTMAN V3 VALIDATION
+Command: postman collection migrate postman/Legit_Hair_Backend.postman_collection.json -o <temporary-sync-directory>
+Command: postman workspace lint -o json
+Result: PASS
+- Files scanned: 147
+- Errors: 0
+- Warnings: 0
+
+Command: postman collection lint <final-migrated-collection> --reporter json --fail-severity warning
+Result: PASS
+- Request files scanned: 112
+- Errors: 0
+- Warnings: 0
+
+COLLECTION CLOUD DIFF AND PUSH
+Command: postman workspace diff --push-strategy default --json
+Scoped result: PASS
+- Create: 0
+- Update: 1 (legit-hair only)
+- Delete: 0
+- Unrelated collections/environments included: 0
+
+Command: postman workspace push --push-strategy default --yes --json --no-report-events
+Result: PASS
+- Created: 0
+- Updated: 1 (legit-hair)
+- Deleted: 0
+- Failed/blocked: 0
+
+REMOTE COLLECTION VERIFICATION
+Command: postman collection get 57990495-3a655abb-56fc-4f3b-aef0-6a470480d6f9 --json
+Result: PASS
+- Name: legit-hair
+- Request count: 112
+- Top-level folders: auth, seller, admin, products, delivery, payment, finance
+- Saved bearer-token match: false
+- Gmail credential-sample match: false
+
+ENVIRONMENT VALIDATION AND PUSH
+Command: postman environment lint "postman/environments/Legit Hair Local.environment.yaml" -o json
+Result: PASS (1 file, 0 errors, 0 warnings)
+
+Command: postman workspace diff --push-strategy default --summary --json
+Scoped result: PASS
+- Create: 1 (Legit Hair Local only)
+- Update: 0
+- Delete: 0
+
+Command: postman workspace push --push-strategy default --yes --json --no-report-events
+Result: PASS
+- Created: 1 (Legit Hair Local)
+- Updated/deleted/failed/blocked: 0
+
+Command: postman environment list --workspace 633dcd6c-9b50-4e47-87fe-fbcb4f342c60 --filter "Legit Hair Local" --json
+Result: PASS
+- Environment ID: 57990495-c6702645-8be8-4479-859a-e8188b759b06
+- Values: 63 synthetic fixture or empty runtime placeholders; no live provider key was added.
+
+REPOSITORY STATIC CHECKS
+First npm run lint: FAIL (new JavaScript utility lacked the project-specific lint suppression/imports).
+Correction: added the narrow JavaScript return-type rule suppression and explicit Node console/URLSearchParams imports.
+Final npm run lint: PASS (exit 0).
+npm run typecheck: PASS (exit 0).
+
+LIMITATIONS
+- Requests were not executed in this follow-up; earlier B12 smoke/regression evidence remains the execution evidence.
+- No provider test-mode or live provider request was made.
+- No deployment, DNS, production database, or live-money authority is implied.
+
+SECOND SYNC: EXECUTED FULL REGRESSION FOLLOW-UP (2026-11-02)
+- Local execution evidence: `full-postman-regression.txt`.
+- The cloud diff was explicitly scoped after an unscoped preview detected unrelated collection metadata and a local mock create; that unsafe preview was not pushed.
+- Final scoped diff: create 0, update 1 (`legit-hair`), delete 0.
+- Final push: created 0, updated 1, deleted 0, failed 0, blocked 0.
+- Remote collection verification: same collection ID, 239 requests, 10 expected top-level folders and 0 non-empty saved token variables.
+- Existing `Legit Hair Local` environment updated in place with the valid synthetic `RCP_LOCALTEST001` recipient code.
+- No unrelated collection, environment, globals or mock resource was changed.

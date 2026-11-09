@@ -23,6 +23,11 @@ Status: READY_FOR_REVIEW
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
+| Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
+| Frontend Postman handover folder | PASS | 15 requests, 15 test scripts, 21 assertions, zero final failures |
+| Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
+| Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
+| Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
 | Dependency audit | PASS | 0 known vulnerabilities reported |
 | Production MySQL | NOT RUN | MariaDB 10.4.32 is not compatibility proof |
 | Provider test-mode/dashboard | NOT RUN | No provider credentials or calls authorized |
@@ -39,9 +44,25 @@ The first checkout performance run is rejected evidence: it exposed a bad collec
 
 The first OpenAPI syntax lint exposed baseline flow-map defects. The final independent lint exited 0 with no issues.
 
+## Post-review Postman organization (2026-11-02)
+
+The maintained collection was reorganized without losing or duplicating requests: 112 before and 112 after. Migration to Postman v3 scanned 147 files with zero lint errors or warnings. The scoped cloud diff showed one update (`legit-hair`), zero creates, and zero workspace deletions; the push updated that one collection successfully. A second isolated diff showed one create (`Legit Hair Local`), zero updates, and zero deletions; the environment push succeeded. Remote verification returned the same collection ID, the seven requested top-level folders, 112 requests, and no saved bearer token or Gmail credential sample.
+
+The first repository ESLint run found JavaScript utility rule/import issues. Those were corrected; final `npm run lint` and `npm run typecheck` both exited 0. See [Postman cloud sync evidence](evidence/B12/postman-cloud-sync.txt).
+
+The frontend handover follow-up retained the existing B11/B12 domain samples and added a curated provider-safe folder with five role logins and representative protected/public reads. Its first imported run exposed four malformed v2.1 query URL objects; the organizer was corrected and the final folder run passed 15/15 requests and 21/21 assertions. No access or refresh token was saved. See [frontend handover evidence](evidence/B12/frontend-handover-postman.txt).
+
+The complete Postman follow-up duplicated maintained requests into dependency order without removing their domain-organized originals. After correcting a synthetic payout recipient value and resetting only the disposable test schema, `full-regression` passed 110/110 requests and 214/214 assertions. The fake-email token boundary was exercised separately by the saved Postman request and passed 2/2 assertions without exposing the token. The database-off readiness case remains visible and correctly classified NOT RUN rather than falsely passed. See [full Postman evidence](evidence/B12/full-postman-regression.txt).
+
+## Password-recovery Postman follow-up (2026-11-09)
+
+The maintained collection now includes forgot-password, reset-password, and login-after-reset samples under `auth > password-recovery`, with controlled duplicates under `manual-regression`. Organization completed with 245 requests and JSON parsing, ESLint, and type checking passed. The saved forgot-password request called `POST /api/v1/auth/forgot-password` on the running local backend and passed 1/1 request, 1/1 test script, and 2/2 assertions with exit 0.
+
+The ordinary focused MariaDB wrapper remained blocked before discovery by the established Windows `uv_os_get_passwd`/`ENOMEM` host condition. The documented shim executed the complete authentication file: both password-reset cases passed, followed later by an unrelated fake-email count failure (`11` passing, `1` failing) because six queued jobs had already been completed, consistent with another local email worker using the shared disposable schema. Process enumeration was denied by the host, so that inference was not promoted to a clean-suite claim. A grep-only rerun was rejected because the selected tests depend on customer setup performed by earlier tests in the same file. See [password-recovery Postman evidence](evidence/B12/password-recovery-postman.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), and [Postman/contract/security](evidence/B12/postman-contract-security.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), and [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt).
 

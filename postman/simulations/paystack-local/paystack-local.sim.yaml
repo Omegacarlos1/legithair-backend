@@ -1,0 +1,8 @@
+simulation: legit-hair-paystack-local
+routing: path
+mocks:
+  - name: paystack
+    routeKey: paystack
+    origin:
+      - api.paystack.co
+    path: postman/mocks/paystack-local/config.yaml

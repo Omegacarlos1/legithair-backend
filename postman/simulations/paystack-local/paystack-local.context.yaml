@@ -1,0 +1,30 @@
+purpose:
+  stands_in_for: Paystack transaction initialization/verification, refund, and transfer HTTP endpoints used by the Legit Hair backend.
+  unblocks: Provider-safe local Postman regression against the real backend without provider credentials or money movement.
+assumptions:
+  - id: local-transaction-lifecycle
+    status: unknown
+    claim: The response fields modelled by the stand-in remain compatible with Paystack test mode for transaction initialization and verification.
+    reason: The existing provider adapter requires these fields and local tests exercise their parsing, but this stand-in is repository-owned and cannot establish current provider behavior.
+    verification: On 2026-11-02 the mock was derived from the committed provider adapter contract. Real Paystack test-mode/dashboard verification remains open.
+    source: src/payments/provider.ts; postman/mocks/paystack-local/default.js
+    updated_at: "2026-11-02"
+  - id: local-refund-lifecycle
+    status: unknown
+    claim: A created refund can be pending and later observed as processed with the modelled fields.
+    reason: This is sufficient to exercise the backend recovery path locally, but does not establish Paystack timing, dashboard state, or webhook delivery.
+    verification: The stand-in returns pending on create and processed on fetch; real provider test-mode evidence remains open.
+    source: src/refunds/provider.ts; postman/mocks/paystack-local/default.js
+    updated_at: "2026-11-02"
+  - id: local-transfer-lifecycle
+    status: unknown
+    claim: A transfer initiation/verification response with the modelled fields remains compatible with Paystack test mode.
+    reason: The stand-in exercises local parsing and ledger behavior only; recipient validity and provider settlement are not established.
+    verification: The stand-in returns a synthetic successful transfer; real recipient/transfer dashboard evidence remains open.
+    source: src/payouts/provider.ts; postman/mocks/paystack-local/default.js
+    updated_at: "2026-11-02"
+fingerprints:
+  - id: local-postman-regression-2026-11-02
+    date: "2026-11-02"
+    commit: 3568b7a-dirty
+    cli: 1.75.0
