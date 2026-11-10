@@ -109,6 +109,9 @@ describe('B08 fulfilment, returns, refunds, and COD reconciliation against Maria
     await service.transitionSeller(sellerUser1, order.orderId, 'processing');
     const [rows] = await pool.query<StatusRow[]>('SELECT status FROM seller_suborders WHERE order_id = ? ORDER BY seller_id', [order.orderId]);
     assert.deepEqual(rows.map((row) => row.status), ['processing', 'pending']);
+    const progress = await service.orderProgress(order.orderId) as { timeline: Array<{ type: string; suborderId: string | null; fromStatus: string | null; toStatus: string; createdAt: string }> };
+    assert.ok(progress.timeline.some((event) => event.type === 'suborder_status' && event.suborderId === order.suborderIds[0] && event.fromStatus === 'pending' && event.toStatus === 'processing'));
+    assert.ok(progress.timeline.every((event, index) => index === 0 || progress.timeline[index - 1]!.createdAt <= event.createdAt));
     const otherOnly = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 2, items: [{ sellerId: seller2, productId: product2, quantity: 1 }] });
     await assert.rejects(service.transitionSeller(sellerUser1, otherOnly.orderId, 'processing'), (error: Error & { code?: string }) => error.code === 'SUBORDER_NOT_FOUND');
   });

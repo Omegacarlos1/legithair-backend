@@ -35,6 +35,8 @@ interface ReviewRow extends RowDataPacket { id: string; order_id: string; paymen
 interface CodRow extends RowDataPacket { id: string; order_id: string; idempotency_key: string; request_hash: string; amount_minor: number | string; currency: string; collection_reference: string; status: string; collected_at: Date; created_at: Date; updated_at: Date }
 interface CountRow extends RowDataPacket { total: number | string }
 interface ProductIdRow extends RowDataPacket { id: string }
+interface OrderStatusEventRow extends RowDataPacket { id: number | string; from_status: string | null; to_status: string; reason: string; created_at: Date }
+interface FulfilmentEventRow extends RowDataPacket { id: number | string; suborder_id: string; from_status: string; to_status: string; reason: string | null; created_at: Date }
 
 const sellerTransitions: Record<string, SuborderStatus[]> = {
   pending: ['processing'],
@@ -267,11 +269,20 @@ export class FulfilmentService {
   public async orderProgress(orderId: string): Promise<object> {
     const [orders] = await this.pool.query<OrderRow[]>('SELECT * FROM orders WHERE id = ?', [orderId]);
     if (!orders[0]) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
-    const [suborders] = await this.pool.query<SuborderRow[]>('SELECT * FROM seller_suborders WHERE order_id = ? ORDER BY seller_id', [orderId]);
-    const [collections] = await this.pool.query<CodRow[]>('SELECT * FROM cod_collections WHERE order_id = ?', [orderId]);
+    const [[suborders], [collections], [orderEvents], [suborderEvents]] = await Promise.all([
+      this.pool.query<SuborderRow[]>('SELECT * FROM seller_suborders WHERE order_id = ? ORDER BY seller_id', [orderId]),
+      this.pool.query<CodRow[]>('SELECT * FROM cod_collections WHERE order_id = ?', [orderId]),
+      this.pool.query<OrderStatusEventRow[]>('SELECT id, from_status, to_status, reason, created_at FROM order_status_events WHERE order_id = ? ORDER BY created_at, id', [orderId]),
+      this.pool.query<FulfilmentEventRow[]>('SELECT id, suborder_id, from_status, to_status, reason, created_at FROM fulfilment_events WHERE order_id = ? ORDER BY created_at, id', [orderId])
+    ]);
+    const timeline = [
+      ...orderEvents.map((event) => ({ id: `order:${event.id}`, type: 'order_status' as const, suborderId: null, fromStatus: event.from_status, toStatus: event.to_status, reason: event.reason, createdAt: event.created_at.toISOString() })),
+      ...suborderEvents.map((event) => ({ id: `suborder:${event.id}`, type: 'suborder_status' as const, suborderId: event.suborder_id, fromStatus: event.from_status, toStatus: event.to_status, reason: event.reason, createdAt: event.created_at.toISOString() }))
+    ].sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id));
     return {
       orderId, status: orders[0].status, deliveryMethod: orders[0].delivery_method, destination: jsonObject(orders[0].destination_snapshot),
       suborders: suborders.map((row) => ({ id: row.id, sellerId: row.seller_id, status: row.status, fulfilledAt: row.fulfilled_at?.toISOString() ?? null })),
+      timeline,
       codCollection: collections[0] ? codObject(collections[0]) : null,
       codEarningsEligible: collections[0]?.status === 'confirmed'
     };

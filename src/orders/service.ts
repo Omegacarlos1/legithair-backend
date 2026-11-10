@@ -22,6 +22,7 @@ interface OrderRow extends RowDataPacket {
 interface OrderItemRow extends RowDataPacket { id: string; suborder_id: string; product_id: string; seller_id: string; product_name: string; quantity: number; unit_price_minor: number | string; line_total_minor: number | string; commission_basis: string; commission_rate_bps: number; commission_minor: number | string }
 interface SuborderRow extends RowDataPacket { id: string; seller_id: string; status: string; items_subtotal_minor: number | string; delivery_fee_minor: number | string; commission_minor: number | string; seller_net_minor: number | string }
 interface ReservationRow extends RowDataPacket { id: string; product_id: string; quantity: number; status: 'active' | 'consumed' | 'released'; expires_at: Date; released_at: Date | null; release_reason: string | null }
+interface CountRow extends RowDataPacket { total: number | string }
 
 const releasableStatuses = new Set<OrderStatus>(['awaiting_payment', 'awaiting_collection']);
 const allowedTransitions: Partial<Record<OrderStatus, OrderStatus[]>> = {
@@ -121,6 +122,37 @@ export class OrderService {
     return this.orderView(orderId);
   }
 
+  public async listCustomerOrders(userId: string, query: { page: number; limit: number; status?: OrderStatus }): Promise<{ orders: object[]; pagination: object }> {
+    const where = query.status ? 'user_id = ? AND status = ?' : 'user_id = ?';
+    const parameters: Array<string | number> = query.status ? [userId, query.status] : [userId];
+    const [counts] = await this.pool.query<CountRow[]>(`SELECT COUNT(*) AS total FROM orders WHERE ${where}`, parameters);
+    const total = Number(counts[0]!.total);
+    const [orders] = await this.pool.query<OrderRow[]>(`SELECT * FROM orders WHERE ${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, [...parameters, query.limit, (query.page - 1) * query.limit]);
+    const itemsByOrder = new Map<string, OrderItemRow[]>();
+    if (orders.length) {
+      const [items] = await this.pool.query<Array<OrderItemRow & { order_id: string }>>(`SELECT * FROM order_items WHERE order_id IN (${orders.map(() => '?').join(', ')}) ORDER BY order_id, created_at, id`, orders.map((order) => order.id));
+      for (const item of items) itemsByOrder.set(item.order_id, [...(itemsByOrder.get(item.order_id) ?? []), item]);
+    }
+    return {
+      orders: orders.map((order) => ({
+        id: order.id,
+        paymentMethod: order.payment_method,
+        status: order.status,
+        currency: order.currency,
+        deliveryMethod: order.delivery_method,
+        totals: {
+          itemsSubtotalMinor: moneyValue(order.items_subtotal_minor),
+          deliveryTotalMinor: moneyValue(order.delivery_total_minor),
+          grandTotalMinor: moneyValue(order.grand_total_minor)
+        },
+        items: (itemsByOrder.get(order.id) ?? []).map(customerItemView),
+        createdAt: order.created_at.toISOString(),
+        updatedAt: order.updated_at.toISOString()
+      })),
+      pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) }
+    };
+  }
+
   public async transitionOrder(orderId: string, toStatus: OrderStatus, reason: string, actor: { type: 'system' | 'customer' | 'admin' | 'provider'; userId?: string }): Promise<object> {
     await this.applyTransition(orderId, toStatus, reason, actor, false);
     return this.orderView(orderId);
@@ -218,6 +250,10 @@ function commissionAmount(lineTotal: number | string, rateBps: number): number {
 
 function itemView(item: OrderItemRow): object {
   return { id: item.id, productId: item.product_id, productName: item.product_name, quantity: item.quantity, unitPriceMinor: moneyValue(item.unit_price_minor), lineTotalMinor: moneyValue(item.line_total_minor), commission: { basis: item.commission_basis, rateBps: item.commission_rate_bps, amountMinor: moneyValue(item.commission_minor) } };
+}
+
+function customerItemView(item: OrderItemRow): object {
+  return { id: item.id, productId: item.product_id, productName: item.product_name, quantity: item.quantity, unitPriceMinor: moneyValue(item.unit_price_minor), lineTotalMinor: moneyValue(item.line_total_minor) };
 }
 
 function jsonValue(value: string | object | null): string | null { return value === null ? null : typeof value === 'string' ? value : JSON.stringify(value); }

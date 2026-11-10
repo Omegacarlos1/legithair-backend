@@ -107,6 +107,16 @@ describe('orders and inventory reservations against MariaDB', function () {
     const replay = await api.post('/api/v1/orders').set('authorization', `Bearer ${winningToken}`).set('idempotency-key', key).send({ quoteId: winningQuoteId, paymentMethod: 'paystack' }).expect(200);
     assert.equal(replay.body.data.order.id, winningOrderId);
     assert.equal(replay.body.data.idempotentReplay, true);
+    const history = await api.get('/api/v1/orders').query({ status: 'awaiting_payment', page: 1, limit: 1 }).set('authorization', `Bearer ${winningToken}`).expect(200);
+    assert.equal(history.body.meta.pagination.page, 1);
+    assert.equal(history.body.meta.pagination.limit, 1);
+    assert.equal(history.body.data.orders[0].id, winningOrderId);
+    assert.equal(history.body.data.orders[0].items[0].productName, 'B06 Last Wig');
+    assert.equal(history.body.data.orders[0].items[0].unitPriceMinor, 100000);
+    const losingToken = winningToken === customerOneToken ? customerTwoToken : customerOneToken;
+    const otherHistory = await api.get('/api/v1/orders').set('authorization', `Bearer ${losingToken}`).expect(200);
+    assert.equal(otherHistory.body.meta.pagination.total, 0);
+    assert.deepEqual(otherHistory.body.data.orders, []);
     const orders = new OrderService(pool, policy);
     await assert.rejects(() => orders.transitionOrder(winningOrderId, 'awaiting_collection', 'synthetic_invalid', { type: 'system' }), (error: unknown) => error instanceof AppError && error.code === 'INVALID_ORDER_TRANSITION');
     await orders.transitionOrder(winningOrderId, 'cancelled', 'synthetic_cleanup', { type: 'system' });

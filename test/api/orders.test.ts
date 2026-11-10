@@ -3,6 +3,13 @@ import request from 'supertest';
 import { stubPool, testApp } from '../helpers.js';
 
 describe('order API access controls', () => {
+  it('requires customer authentication to list order history', async () => {
+    const response = await request(testApp(stubPool(async () => [[], []] as never)))
+      .get('/api/v1/orders')
+      .expect(401);
+    assert.equal(response.body.error.code, 'UNAUTHENTICATED');
+  });
+
   it('requires an order owner credential for checkout', async () => {
     const response = await request(testApp(stubPool(async () => [[], []] as never)))
       .post('/api/v1/orders')
