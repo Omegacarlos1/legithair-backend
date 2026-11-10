@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Legit Hair B12 Provider-Safe Smoke",
-    "description": "Provider-safe staging smoke using guarded synthetic fixtures, including a self-cleaning M03 basket workflow and a rerunnable M04 address/pickup-quote workflow that removes its temporary basket line. It deliberately excludes payment/refund/payout provider calls and live money movement.",
+    "description": "Provider-safe staging smoke using guarded synthetic fixtures, including M03 baskets, M04 address/pickup quoting, and an M06 account/order-tracking workflow. M06 creates then cancels one customer and one guest order so stock is released; runtime credentials are cleared. It deliberately excludes payment/refund/payout provider calls and live money movement.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,10 +13,22 @@
     { "key": "financeToken", "value": "" },
     { "key": "supportToken", "value": "" },
     { "key": "b05ProductOneId", "value": "40000000-0000-4000-8000-000000000051" },
+    { "key": "b05ProductTwoId", "value": "40000000-0000-4000-8000-000000000052" },
     { "key": "b05AddressId", "value": "80000000-0000-4000-8000-000000000005" },
     { "key": "b05PickupId", "value": "60000000-0000-4000-8000-000000000005" },
+    { "key": "deliveryZoneId", "value": "50000000-0000-4000-8000-000000000001" },
     { "key": "m03GuestBasketToken", "value": "" },
-    { "key": "m04QuoteKey", "value": "" }
+    { "key": "m04QuoteKey", "value": "" },
+    { "key": "m06CustomerQuoteKey", "value": "" },
+    { "key": "m06CustomerQuoteId", "value": "" },
+    { "key": "m06CustomerOrderKey", "value": "" },
+    { "key": "m06CustomerOrderId", "value": "" },
+    { "key": "m06GuestBasketToken", "value": "" },
+    { "key": "m06GuestQuoteKey", "value": "" },
+    { "key": "m06GuestQuoteId", "value": "" },
+    { "key": "m06GuestOrderKey", "value": "" },
+    { "key": "m06GuestOrderId", "value": "" },
+    { "key": "m06GuestTrackingToken", "value": "" }
   ],
   "item": [
     {
@@ -118,6 +130,91 @@
       "name": "M04 Remove pickup item",
       "request": { "method": "DELETE", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}" },
       "event": [{ "listen": "test", "script": { "exec": ["pm.test('pickup item removed 204', () => pm.response.to.have.status(204));", "pm.collectionVariables.unset('m04QuoteKey');"] } }]
+    },
+    {
+      "name": "M06 Read marketing preference",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('marketing preference 200', () => pm.response.to.have.status(200));", "pm.test('explicit preference state', () => pm.expect(pm.response.json().data.preference.optedIn).to.be.a('boolean'));"] } }]
+    },
+    {
+      "name": "M06 Opt in to marketing",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"optedIn\":true}" }, "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('marketing preference updated 200', () => pm.response.to.have.status(200));", "pm.test('customer opted in', () => pm.expect(pm.response.json().data.preference.optedIn).to.eql(true));"] } }]
+    },
+    {
+      "name": "M06 Customer set order item",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('order item set 201', () => pm.response.to.have.status(201));"] } }]
+    },
+    {
+      "name": "M06 Create customer delivery quote",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Idempotency-Key", "value": "{{m06CustomerQuoteKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"addressId\":\"{{b05AddressId}}\"}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('m06CustomerQuoteKey', 'm06-customer-quote-' + pm.variables.replaceIn('{{$randomUUID}}'));"] } }, { "listen": "test", "script": { "exec": ["pm.test('customer quote 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('m06CustomerQuoteId', pm.response.json().data.quote.id);"] } }]
+    },
+    {
+      "name": "M06 Create customer order",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Idempotency-Key", "value": "{{m06CustomerOrderKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"quoteId\":\"{{m06CustomerQuoteId}}\",\"paymentMethod\":\"paystack\"}" }, "url": "{{baseUrl}}/api/v1/orders" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('m06CustomerOrderKey', 'm06-customer-order-' + pm.variables.replaceIn('{{$randomUUID}}'));"] } }, { "listen": "test", "script": { "exec": ["pm.test('customer order 201', () => pm.response.to.have.status(201));", "const order=pm.response.json().data.order; pm.test('customer order awaits payment', () => pm.expect(order.status).to.eql('awaiting_payment')); pm.collectionVariables.set('m06CustomerOrderId', order.id);"] } }]
+    },
+    {
+      "name": "M06 List customer orders",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/orders?page=1&limit=20" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer orders 200', () => pm.response.to.have.status(200));", "const body=pm.response.json(); pm.test('created order is in owner history', () => { const order=body.data.orders.find(item=>item.id===pm.variables.get('m06CustomerOrderId')); pm.expect(order).to.be.an('object'); pm.expect(order.items[0].productName).to.be.a('string'); pm.expect(body.meta.pagination.total).to.be.above(0); });"] } }]
+    },
+    {
+      "name": "M06 Read customer order",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer order detail 200', () => pm.response.to.have.status(200));", "pm.test('owned order returned', () => pm.expect(pm.response.json().data.order.id).to.eql(pm.variables.get('m06CustomerOrderId')));"] } }]
+    },
+    {
+      "name": "M06 Read customer fulfilment timeline",
+      "request": { "method": "GET", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}/fulfilment" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer fulfilment 200', () => pm.response.to.have.status(200));", "const f=pm.response.json().data.fulfilment; pm.test('chronological timeline returned', () => { pm.expect(f.orderId).to.eql(pm.variables.get('m06CustomerOrderId')); pm.expect(f.timeline).to.be.an('array').that.is.not.empty; pm.expect(f.timeline[0]).to.have.keys('id','type','suborderId','fromStatus','toStatus','reason','createdAt'); });"] } }]
+    },
+    {
+      "name": "M06 Create guest tracking basket",
+      "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{baseUrl}}/api/v1/baskets/guest" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest tracking basket 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('m06GuestBasketToken', pm.response.json().data.guestBasketToken);"] } }]
+    },
+    {
+      "name": "M06 Guest set order item",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m06GuestBasketToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"productId\":\"{{b05ProductTwoId}}\",\"quantity\":1}" }, "url": "{{baseUrl}}/api/v1/baskets/items" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest order item 201', () => pm.response.to.have.status(201));"] } }]
+    },
+    {
+      "name": "M06 Create guest delivery quote",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m06GuestBasketToken}}" }, { "key": "Idempotency-Key", "value": "{{m06GuestQuoteKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"address\":{\"recipientName\":\"Synthetic Guest\",\"phone\":\"+2348000000000\",\"line1\":\"16 Synthetic Guest Street\",\"city\":\"Ikeja\",\"state\":\"Lagos\",\"countryCode\":\"NG\"}}" }, "url": "{{baseUrl}}/api/v1/checkout/quotes" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('m06GuestQuoteKey', 'm06-guest-quote-' + pm.variables.replaceIn('{{$randomUUID}}'));"] } }, { "listen": "test", "script": { "exec": ["pm.test('guest quote 201', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('m06GuestQuoteId', pm.response.json().data.quote.id);"] } }]
+    },
+    {
+      "name": "M06 Create guest order",
+      "request": { "method": "POST", "header": [{ "key": "X-Guest-Basket-Token", "value": "{{m06GuestBasketToken}}" }, { "key": "Idempotency-Key", "value": "{{m06GuestOrderKey}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"quoteId\":\"{{m06GuestQuoteId}}\",\"paymentMethod\":\"cod\"}" }, "url": "{{baseUrl}}/api/v1/orders" },
+      "event": [{ "listen": "prerequest", "script": { "exec": ["pm.collectionVariables.set('m06GuestOrderKey', 'm06-guest-order-' + pm.variables.replaceIn('{{$randomUUID}}'));"] } }, { "listen": "test", "script": { "exec": ["pm.test('guest order 201', () => pm.response.to.have.status(201));", "const data=pm.response.json().data; pm.test('tracking credential returned once', () => pm.expect(data.guestTrackingToken.length).to.be.above(31)); pm.collectionVariables.set('m06GuestOrderId', data.order.id); pm.collectionVariables.set('m06GuestTrackingToken', data.guestTrackingToken);"] } }]
+    },
+    {
+      "name": "M06 Track guest order",
+      "request": { "method": "GET", "header": [{ "key": "X-Order-Tracking-Token", "value": "{{m06GuestTrackingToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{m06GuestOrderId}}" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest order tracking 200', () => pm.response.to.have.status(200));", "pm.test('guest order returned', () => pm.expect(pm.response.json().data.order.id).to.eql(pm.variables.get('m06GuestOrderId')));"] } }]
+    },
+    {
+      "name": "M06 Read guest fulfilment timeline",
+      "request": { "method": "GET", "header": [{ "key": "X-Order-Tracking-Token", "value": "{{m06GuestTrackingToken}}" }], "url": "{{baseUrl}}/api/v1/orders/{{m06GuestOrderId}}/fulfilment" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest fulfilment 200', () => pm.response.to.have.status(200));", "const f=pm.response.json().data.fulfilment; pm.test('guest timeline shape', () => { pm.expect(f.orderId).to.eql(pm.variables.get('m06GuestOrderId')); pm.expect(f.timeline[0].type).to.eql('order_status'); });"] } }]
+    },
+    {
+      "name": "M06 Cancel customer test order",
+      "request": { "method": "POST", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"reason\":\"Provider-safe M06 handover cleanup\"}" }, "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}/cancel" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('customer test order cancelled 200', () => pm.response.to.have.status(200));", "pm.test('customer stock released', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('cancelled')); pm.collectionVariables.unset('m06CustomerQuoteKey'); pm.collectionVariables.unset('m06CustomerQuoteId'); pm.collectionVariables.unset('m06CustomerOrderKey'); pm.collectionVariables.unset('m06CustomerOrderId');"] } }]
+    },
+    {
+      "name": "M06 Cancel guest test order",
+      "request": { "method": "POST", "header": [{ "key": "X-Order-Tracking-Token", "value": "{{m06GuestTrackingToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"reason\":\"Provider-safe M06 guest handover cleanup\"}" }, "url": "{{baseUrl}}/api/v1/orders/{{m06GuestOrderId}}/cancel" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('guest test order cancelled 200', () => pm.response.to.have.status(200));", "pm.test('guest stock released', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('cancelled')); ['m06GuestBasketToken','m06GuestQuoteKey','m06GuestQuoteId','m06GuestOrderKey','m06GuestOrderId','m06GuestTrackingToken'].forEach(key=>pm.collectionVariables.unset(key));"] } }]
+    },
+    {
+      "name": "M06 Restore marketing opt-out",
+      "request": { "method": "PUT", "header": [{ "key": "Authorization", "value": "Bearer {{customerToken}}" }, { "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"optedIn\":false}" }, "url": "{{baseUrl}}/api/v1/me/marketing-preference" },
+      "event": [{ "listen": "test", "script": { "exec": ["pm.test('marketing preference restored 200', () => pm.response.to.have.status(200));", "pm.test('customer opted out', () => pm.expect(pm.response.json().data.preference.optedIn).to.eql(false));"] } }]
     },
     {
       "name": "Browse published catalogue",

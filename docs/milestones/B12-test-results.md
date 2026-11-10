@@ -1,6 +1,6 @@
 # B12 test results
 
-Date: 2026-10-30; updated 2026-11-09
+Date: 2026-10-30; updated 2026-11-10
 Status: READY_FOR_REVIEW
 
 ## Final local results
@@ -11,20 +11,20 @@ Status: READY_FOR_REVIEW
 | TypeScript type check | PASS | Exit 0 |
 | Production build | PASS | Exit 0 |
 | Unit tests | PASS | 25 passed, 0 failed, 0 skipped |
-| Supertest API tests | PASS | 30 passed, 0 failed, 0 skipped |
+| Supertest API tests | PASS | 31 passed, 0 failed, 0 skipped |
 | MariaDB integration tests | PASS | Final run: 65 passed, 0 failed, 0 skipped in 39 seconds |
 | Socket.IO integration tests | PASS | Final isolated rerun: 2 passed, 0 failed, 0 skipped in 3 seconds; initial transient recorded below |
-| Total deterministic checks | PASS | 122 passed, 0 failed, 0 skipped |
+| Total deterministic checks | PASS | 123 passed, 0 failed, 0 skipped |
 | Migration rollback/forward | PASS | Repeated complete down/up cycles on isolated MariaDB |
 | Backup/restore rehearsal | PASS | Isolated restore, counts, rollback/up, final restore |
 | Operations snapshot | PASS | No overdue/stale/recovery conditions before load |
-| Provider-safe Postman smoke | PASS | Latest artifact: 30 requests, 47 assertions, zero failures |
+| Provider-safe Postman smoke | PASS | Latest artifact: 47 requests, 76 assertions, zero failures |
 | 50-VU browsing pilot | PASS | p95 82 ms, 0% errors/failures |
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
 | Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
-| Frontend Postman handover folder | PASS | 30 requests, 30 test scripts, 47 assertions, zero failures; includes M03 baskets and M04 address/pickup workflows |
+| Frontend Postman handover folder | PASS | 47 requests, 47 test scripts, 76 assertions, zero failures; includes M03, M04, and M06 account/order workflows |
 | Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
 | Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
 | Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
@@ -73,6 +73,14 @@ The backend already exposed owned address list/create and accepted `{ "deliveryM
 The focused authentication integration file passed 12/12 against MariaDB, including creation/listing, nullable `line2`, update, concurrent selection, final deterministic selection, cross-owner denial, and unknown-ID denial. Final static/build checks passed; the complete deterministic suites finished at 25 unit, 30 API, 65 MariaDB integration, and 2 Socket.IO checks. The first Socket.IO attempt returned `false` once while recovering a stale outbox lease (1 pass, 1 fail); the immediate isolated rerun passed 2/2. The transient is recorded and was unrelated to the address/quote changes.
 
 OpenAPI 3.1 syntax lint reported no issues. The maintained collection organized to 260 requests. Both the standalone provider-safe smoke and `frontend-handover` folder passed 30/30 requests, 30/30 test scripts, and 47/47 assertions against the disposable MariaDB schema. Postman reported an offline feature-flag `AggregateError`, but local execution completed with exit 0. See [M04 handover evidence](evidence/B12/m04-address-pickup-handover.txt).
+
+## M06 account and order handover follow-up (2026-11-10)
+
+Added customer-only `GET /api/v1/orders` with owner scoping, newest-first stable pagination, optional status filtering, and immutable item summaries. Added chronological `order_status` and `suborder_status` timeline entries to the existing customer/guest fulfilment read without exposing actor identifiers. Existing guest credential authorization, return item selection, and review pagination were verified rather than reimplemented. Return/review response schemas and examples are now explicit; return evidence upload remains unsupported pending the existing object-storage, authorization, and retention gates.
+
+Final static/build checks passed. The documented host shim executed 25/25 unit, 31/31 API, 65/65 MariaDB integration, and 2/2 Socket.IO checks: 123 total, zero failures/skips. Focused runs separately passed 3 order API checks, 4 MariaDB order scenarios, and 7 MariaDB fulfilment/refund scenarios. The normal focused API wrapper was attempted and stopped before discovery on the established `uv_os_get_passwd`/`ENOMEM` host condition.
+
+OpenAPI 3.1 syntax lint initially identified one unquoted comma in an inline response description; after correction, the final lint exited 0 with no issues. Both Postman JSON collections parsed, organized deterministically to 277 requests, and executed successfully. The standalone smoke and maintained `frontend-handover` folder each passed 47/47 requests, 47/47 test scripts, and 76/76 assertions against the disposable MariaDB schema. Postman again reported only the offline feature-flag `AggregateError`; runs exited 0. `postman collection lint` exited 0 but scanned zero entities because these maintained exports are v2.1 rather than git-native v3. `postman status` is unavailable in the installed CLI and returned `unknown command`. See [M06 handover evidence](evidence/B12/m06-orders-account-handover.txt).
 
 ## What the evidence establishes
 

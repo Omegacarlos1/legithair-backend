@@ -73,6 +73,7 @@ const subfolderOrder = {
     'customer',
     'm03-baskets',
     'm04-checkout',
+    'm06-orders-account',
     'public-catalogue-and-delivery',
     'seller',
     'admin',
@@ -284,6 +285,10 @@ const rules = [
       /^Handover - M04 (List saved addresses|Update saved address|Select default address|Customer set pickup item|Create pickup quote|Remove pickup item)$/.test(
         name,
       ),
+  },
+  {
+    route: ['frontend-handover', 'm06-orders-account'],
+    matches: (name) => /^Handover - M06 /.test(name),
   },
   {
     route: ['frontend-handover', 'public-catalogue-and-delivery'],
@@ -525,7 +530,7 @@ source.info.description = [
   'Folders are organized by API domain. Request names retain their milestone labels for traceability.',
   'The full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.',
   'The manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.',
-  'The frontend-handover folder contains the provider-safe role-login smoke, a self-cleaning M03 basket workflow, and a rerunnable M04 saved-address/pickup-quote workflow that removes its temporary basket line without persisting tokens.',
+  'The frontend-handover folder contains the provider-safe role-login smoke, M03 baskets, M04 saved-address/pickup quoting, and M06 customer/guest order tracking. M06 cancels its synthetic orders to release stock and clears runtime guest credentials.',
   'Select the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.',
   'Provider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.',
 ].join('\n');
