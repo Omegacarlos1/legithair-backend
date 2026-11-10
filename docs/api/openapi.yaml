@@ -332,6 +332,18 @@ paths:
       parameters: [{ name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Immutable quote snapshot }, '404': { description: Quote not found or not owned }, '410': { description: Quote expired } }
   /api/v1/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List the authenticated customer's orders newest first
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [awaiting_payment, awaiting_collection, paid, payment_failed, reservation_expired, cancelled, processing, shipped, delivered, returned, refunded] } }
+      responses:
+        '200': { description: Owner-scoped order history and stable pagination, content: { application/json: { schema: { $ref: '#/components/schemas/OrderListResponse' } } } }
+        '400': { description: Invalid pagination or status filter }
+        '401': { description: Authentication required }
+        '403': { description: Customer role required }
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Atomically create one order and reserve quoted inventory
@@ -387,7 +399,7 @@ paths:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: Read owned seller-level progress, snapshotted Lagos estimate or pickup details, and COD collection eligibility
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Fulfilment progress }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
+      responses: { '200': { description: Fulfilment progress and chronological timeline for a customer or guest owner, content: { application/json: { schema: { $ref: '#/components/schemas/FulfilmentResponse' } } } }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
   /api/v1/orders/{orderId}/cancel:
     post:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
@@ -401,12 +413,12 @@ paths:
       summary: Submit an idempotent item-level return request within the configured window
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReturn' } } } }
-      responses: { '201': { description: Return request created }, '200': { description: Identical idempotent replay }, '404': { description: Order or item absent or inaccessible }, '409': { description: 'Invalid state, closed window, quantity exceeded, or changed replay' }, '503': { description: Return window not configured } }
+      responses: { '201': { description: Return request created, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnSubmissionResponse' } } } }, '200': { description: Identical idempotent replay, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnSubmissionResponse' } } } }, '404': { description: Order or item absent or inaccessible }, '409': { description: 'Invalid state, closed window, quantity exceeded, or changed replay' }, '503': { description: Return window not configured } }
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: List return and refund outcomes for the owned order
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Return requests and refund states }, '404': { description: Order absent or inaccessible } }
+      responses: { '200': { description: Return requests and refund states, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnListResponse' } } } }, '404': { description: Order absent or inaccessible } }
   /api/v1/admin/returns/{returnRequestId}:
     patch:
       security: [{ bearerAuth: [] }]
@@ -479,14 +491,14 @@ paths:
         - { in: path, name: productId, required: true, schema: { type: string, format: uuid } }
         - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-      responses: { '200': { description: Published reviews and rating summary }, '404': { description: Published product not found } }
+      responses: { '200': { description: 'Published reviews, rating summary, and stable pagination', content: { application/json: { schema: { $ref: '#/components/schemas/PublicReviewListResponse' } } } }, '404': { description: Published product not found } }
   /api/v1/reviews:
     post:
       security: [{ bearerAuth: [] }]
       summary: Submit one idempotent review linked to the authenticated customer's completed purchase
       parameters: [{ in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReview' } } } }
-      responses: { '201': { description: Pending review created }, '200': { description: Identical idempotent replay }, '403': { description: Customer role or completed purchase required }, '409': { description: Review already exists or key reused } }
+      responses: { '201': { description: Pending review created, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewSubmissionResponse' } } } }, '200': { description: Identical idempotent replay, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewSubmissionResponse' } } } }, '403': { description: Customer role or completed purchase required }, '409': { description: Review already exists or key reused } }
   /api/v1/admin/reviews:
     get:
       security: [{ bearerAuth: [] }]
@@ -747,6 +759,206 @@ components:
       required: [requestId]
       additionalProperties: false
       properties: { requestId: { type: string } }
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      additionalProperties: false
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+    PaginatedResponseMeta:
+      type: object
+      required: [requestId, pagination]
+      additionalProperties: false
+      properties:
+        requestId: { type: string }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    MoneyTotals:
+      type: object
+      required: [itemsSubtotalMinor, deliveryTotalMinor, grandTotalMinor]
+      additionalProperties: false
+      properties:
+        itemsSubtotalMinor: { type: integer, minimum: 0 }
+        deliveryTotalMinor: { type: integer, minimum: 0 }
+        grandTotalMinor: { type: integer, minimum: 0 }
+    CustomerOrderItem:
+      type: object
+      required: [id, productId, productName, quantity, unitPriceMinor, lineTotalMinor]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPriceMinor: { type: integer, minimum: 0 }
+        lineTotalMinor: { type: integer, minimum: 0 }
+    OrderSummary:
+      type: object
+      required: [id, paymentMethod, status, currency, deliveryMethod, totals, items, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        paymentMethod: { type: string, enum: [paystack, cod] }
+        status: { type: string, enum: [awaiting_payment, awaiting_collection, paid, payment_failed, reservation_expired, cancelled, processing, shipped, delivered, returned, refunded] }
+        currency: { const: NGN }
+        deliveryMethod: { type: string, enum: [delivery, pickup] }
+        totals: { $ref: '#/components/schemas/MoneyTotals' }
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerOrderItem' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OrderListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [orders], additionalProperties: false, properties: { orders: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
+    FulfilmentTimelineEvent:
+      type: object
+      required: [id, type, suborderId, fromStatus, toStatus, reason, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, pattern: '^(order|suborder):[0-9]+$' }
+        type: { type: string, enum: [order_status, suborder_status] }
+        suborderId: { type: [string, 'null'], format: uuid }
+        fromStatus: { type: [string, 'null'] }
+        toStatus: { type: string }
+        reason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    FulfilmentProgress:
+      type: object
+      required: [orderId, status, deliveryMethod, destination, suborders, timeline, codCollection, codEarningsEligible]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string }
+        deliveryMethod: { type: string, enum: [delivery, pickup] }
+        destination: { type: [object, 'null'] }
+        suborders:
+          type: array
+          items:
+            type: object
+            required: [id, sellerId, status, fulfilledAt]
+            additionalProperties: false
+            properties: { id: { type: string, format: uuid }, sellerId: { type: string, format: uuid }, status: { type: string }, fulfilledAt: { type: [string, 'null'], format: date-time } }
+        timeline: { type: array, items: { $ref: '#/components/schemas/FulfilmentTimelineEvent' } }
+        codCollection: { type: [object, 'null'] }
+        codEarningsEligible: { type: boolean }
+    FulfilmentResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [fulfilment], additionalProperties: false, properties: { fulfilment: { $ref: '#/components/schemas/FulfilmentProgress' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    RefundSummary:
+      type: object
+      required: [id, returnRequestId, paymentReviewCaseId, paymentId, providerRefundId, amountMinor, deliveryRefundMinor, currency, status, lastError, processedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        returnRequestId: { type: [string, 'null'], format: uuid }
+        paymentReviewCaseId: { type: [string, 'null'], format: uuid }
+        paymentId: { type: string, format: uuid }
+        providerRefundId: { type: [string, 'null'] }
+        amountMinor: { type: integer, minimum: 0 }
+        deliveryRefundMinor: { type: integer, minimum: 0 }
+        currency: { const: NGN }
+        status: { type: string }
+        lastError: { type: [string, 'null'] }
+        processedAt: { type: [string, 'null'], format: date-time }
+    ReturnRequest:
+      type: object
+      required: [id, orderId, reason, status, adminNote, items, refund, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        reason: { type: string }
+        status: { type: string, enum: [requested, approved, rejected, refund_pending, refunded, refund_failed] }
+        adminNote: { type: [string, 'null'] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [orderItemId, quantity, itemRefundMinor, commissionReversalMinor, sellerReversalMinor, stockDisposition]
+            additionalProperties: false
+            properties: { orderItemId: { type: string, format: uuid }, quantity: { type: integer, minimum: 1 }, itemRefundMinor: { type: integer, minimum: 0 }, commissionReversalMinor: { type: integer, minimum: 0 }, sellerReversalMinor: { type: integer, minimum: 0 }, stockDisposition: { type: string, enum: [pending, restock, no_restock] } }
+        refund: { oneOf: [{ $ref: '#/components/schemas/RefundSummary' }, { type: 'null' }] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ReturnSubmissionResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [returnRequest, idempotentReplay], additionalProperties: false, properties: { returnRequest: { $ref: '#/components/schemas/ReturnRequest' }, idempotentReplay: { type: boolean } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ReturnListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [returns], additionalProperties: false, properties: { returns: { type: array, items: { $ref: '#/components/schemas/ReturnRequest' } } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ReviewRecord:
+      type: object
+      required: [id, productId, orderItemId, userId, rating, title, body, status, moderationReason, moderatedBy, moderatedAt, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string }
+        status: { type: string, enum: [pending, published, rejected] }
+        moderationReason: { type: [string, 'null'] }
+        moderatedBy: { type: [string, 'null'], format: uuid }
+        moderatedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ReviewSubmissionResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [review, idempotentReplay], additionalProperties: false, properties: { review: { $ref: '#/components/schemas/ReviewRecord' }, idempotentReplay: { type: boolean } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PublicReview:
+      type: object
+      required: [id, rating, title, body, authorName, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string }
+        authorName: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PublicReviewListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [reviews, summary]
+          additionalProperties: false
+          properties:
+            reviews: { type: array, items: { $ref: '#/components/schemas/PublicReview' } }
+            summary: { type: object, required: [count, averageRating], additionalProperties: false, properties: { count: { type: integer, minimum: 0 }, averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
     InitializePayment:
       type: object
       required: [orderId]
@@ -765,6 +977,7 @@ components:
       type: object
       required: [items, reason]
       additionalProperties: false
+      description: Return item quantities and a reason. Evidence files/URLs are intentionally not accepted until object-storage, authorization, and retention contracts are approved.
       properties:
         items:
           type: array

@@ -8,7 +8,29 @@ All routes use the standard success/error envelope. Customer routes accept eithe
 
 `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status` completes delivery with `shipped -> delivered`, completes pickup with `ready_for_pickup -> picked_up`, and may cancel an eligible unpaid COD portion before completion. Paid cancellations must use the return/refund workflow. Invalid jumps and delivery/pickup state mixing return `409`.
 
-`GET /api/v1/orders/:orderId/fulfilment` returns aggregate status, seller portions, the immutable Lagos delivery estimate or pickup snapshot, and COD collection state. Order-level status advances only from locked seller-portion state; mixed-seller progress remains visible per portion.
+`GET /api/v1/orders/:orderId/fulfilment` accepts either the owning customer bearer token or the guest order's `X-Order-Tracking-Token`. It returns aggregate status, seller portions, the immutable Lagos delivery estimate or pickup snapshot, COD collection state, and a chronological `timeline`. Order-level status advances only from locked seller-portion state; mixed-seller progress remains visible per portion. Timeline entries deliberately omit staff/user identifiers.
+
+```json
+{
+  "success": true,
+  "data": {
+    "fulfilment": {
+      "orderId": "90000000-0000-4000-8000-000000000001",
+      "status": "shipped",
+      "deliveryMethod": "delivery",
+      "destination": { "method": "delivery", "zone": { "name": "Ikeja", "estimate": { "minBusinessDays": 1, "maxBusinessDays": 3 } } },
+      "suborders": [{ "id": "92000000-0000-4000-8000-000000000001", "sellerId": "20000000-0000-4000-8000-000000000001", "status": "shipped", "fulfilledAt": null }],
+      "timeline": [
+        { "id": "order:41", "type": "order_status", "suborderId": null, "fromStatus": null, "toStatus": "awaiting_payment", "reason": "order_created", "createdAt": "2026-11-10T12:00:00.000Z" },
+        { "id": "suborder:17", "type": "suborder_status", "suborderId": "92000000-0000-4000-8000-000000000001", "fromStatus": "processing", "toStatus": "shipped", "reason": null, "createdAt": "2026-11-10T15:00:00.000Z" }
+      ],
+      "codCollection": null,
+      "codEarningsEligible": false
+    }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
 
 `POST /api/v1/orders/:orderId/cancel` accepts `{ "reason": "..." }`. It cancels only an owned order whose portions are still pending and whose payment does not require a refund. Active stock reservations are released exactly once. A paid order returns `409 PAID_CANCELLATION_REQUIRES_RETURN`.
 
@@ -39,7 +61,32 @@ The order must be a delivered/picked-up COD order and the amount must equal its 
 }
 ```
 
-Items must belong to the owned order, their seller portion must be delivered or picked up, the configured window must remain open, and cumulative non-rejected return quantities cannot exceed the purchase. Identical key/input replays return `200`; a changed replay returns `409`. `GET /api/v1/orders/:orderId/returns` exposes review and refund outcomes.
+`orderItemId` comes from the owned order detail/list response. Items must belong to the owned order, their seller portion must be delivered or picked up, the configured window must remain open, and cumulative non-rejected return quantities cannot exceed the purchase. Identical key/input replays return `200`; a changed replay returns `409`.
+
+The current return contract accepts item quantities and a text reason only. It does not accept evidence URLs or files: durable production object storage and an upload authorization/retention contract remain open release gates. Frontends must not upload return evidence elsewhere or send undocumented fields; Zod rejects additional properties with `400`.
+
+Creation returns `data.returnRequest` plus `data.idempotentReplay`. `GET /api/v1/orders/:orderId/returns` returns the same records under `data.returns`:
+
+```json
+{
+  "id": "93000000-0000-4000-8000-000000000001",
+  "orderId": "90000000-0000-4000-8000-000000000001",
+  "reason": "Item differs from description",
+  "status": "requested",
+  "adminNote": null,
+  "items": [{
+    "orderItemId": "91000000-0000-4000-8000-000000000001",
+    "quantity": 1,
+    "itemRefundMinor": 100000,
+    "commissionReversalMinor": 0,
+    "sellerReversalMinor": 100000,
+    "stockDisposition": "pending"
+  }],
+  "refund": null,
+  "createdAt": "2026-11-10T16:00:00.000Z",
+  "updatedAt": "2026-11-10T16:00:00.000Z"
+}
+```
 
 ## Admin review and Paystack refunds
 
