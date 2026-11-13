@@ -80,8 +80,11 @@ describe('B08 fulfilment, returns, refunds, and COD reconciliation against Maria
     const deliveryMethod = input.deliveryMethod ?? 'delivery';
     const subtotal = input.items.reduce((total, item) => total + (item.productId === product1 ? 100000 : 150000) * item.quantity, 0);
     const delivery = 5000;
-    await pool.query(`INSERT INTO checkout_quotes (id, basket_id, idempotency_key, request_hash, delivery_method, destination_snapshot, items_subtotal_minor, delivery_total_minor, grand_total_minor, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(3), INTERVAL 1 DAY))`, [quoteId, basketId, `b08-quote-${input.suffix}`, createHash('sha256').update(String(input.suffix)).digest('hex'), deliveryMethod, JSON.stringify({ method: deliveryMethod, estimate: { minBusinessDays: 1, maxBusinessDays: 3 } }), subtotal, delivery, subtotal + delivery]);
-    await pool.query(`INSERT INTO orders (id, quote_id, basket_id, user_id, idempotency_key, request_hash, payment_method, status, delivery_method, destination_snapshot, items_subtotal_minor, delivery_total_minor, grand_total_minor, commission_basis, commission_rate_bps, reservation_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'line_item_gross', 1000, DATE_ADD(NOW(3), INTERVAL 1 DAY))`, [orderId, quoteId, basketId, customerId, `b08-order-${input.suffix}`, createHash('sha256').update(`order-${input.suffix}`).digest('hex'), input.paymentMethod, input.status, deliveryMethod, JSON.stringify({ method: deliveryMethod, estimate: { minBusinessDays: 1, maxBusinessDays: 3 } }), subtotal, delivery, subtotal + delivery]);
+    const destination = deliveryMethod === 'pickup'
+      ? { method: 'pickup', name: 'Synthetic Pickup Hub', addressLine: '1 Synthetic Dispatch Road', city: 'Ikeja', state: 'Lagos', estimate: { minBusinessDays: 1, maxBusinessDays: 3 } }
+      : { method: 'delivery', zone: { id: 'zone-fixture', code: 'ikeja', name: 'Ikeja', estimate: { minBusinessDays: 1, maxBusinessDays: 3 } }, address: { recipientName: 'Private Customer', phone: '+2348000000000', line1: '10 Private Street', city: 'Ikeja', state: 'Lagos', countryCode: 'NG' } };
+    await pool.query(`INSERT INTO checkout_quotes (id, basket_id, idempotency_key, request_hash, delivery_method, destination_snapshot, items_subtotal_minor, delivery_total_minor, grand_total_minor, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(3), INTERVAL 1 DAY))`, [quoteId, basketId, `b08-quote-${input.suffix}`, createHash('sha256').update(String(input.suffix)).digest('hex'), deliveryMethod, JSON.stringify(destination), subtotal, delivery, subtotal + delivery]);
+    await pool.query(`INSERT INTO orders (id, quote_id, basket_id, user_id, idempotency_key, request_hash, payment_method, status, delivery_method, destination_snapshot, items_subtotal_minor, delivery_total_minor, grand_total_minor, commission_basis, commission_rate_bps, reservation_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'line_item_gross', 1000, DATE_ADD(NOW(3), INTERVAL 1 DAY))`, [orderId, quoteId, basketId, customerId, `b08-order-${input.suffix}`, createHash('sha256').update(`order-${input.suffix}`).digest('hex'), input.paymentMethod, input.status, deliveryMethod, JSON.stringify(destination), subtotal, delivery, subtotal + delivery]);
     const itemIds: string[] = [];
     const suborderIds: string[] = [];
     for (const [index, source] of input.items.entries()) {
@@ -105,15 +108,59 @@ describe('B08 fulfilment, returns, refunds, and COD reconciliation against Maria
 
   it('rejects delivery jumps and cannot let one seller alter another seller portion', async () => {
     const order = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 1, items: [{ sellerId: seller1, productId: product1, quantity: 1 }, { sellerId: seller2, productId: product2, quantity: 1 }] });
-    await assert.rejects(service.transitionSeller(sellerUser1, order.orderId, 'shipped'), (error: Error & { code?: string }) => error.code === 'INVALID_FULFILMENT_TRANSITION');
-    await service.transitionSeller(sellerUser1, order.orderId, 'processing');
+    await assert.rejects(service.transitionSeller(sellerUser1, order.orderId, 'shipped', 1), (error: Error & { code?: string }) => error.code === 'INVALID_FULFILMENT_TRANSITION');
+    await service.transitionSeller(sellerUser1, order.orderId, 'processing', 1);
     const [rows] = await pool.query<StatusRow[]>('SELECT status FROM seller_suborders WHERE order_id = ? ORDER BY seller_id', [order.orderId]);
     assert.deepEqual(rows.map((row) => row.status), ['processing', 'pending']);
     const progress = await service.orderProgress(order.orderId) as { timeline: Array<{ type: string; suborderId: string | null; fromStatus: string | null; toStatus: string; createdAt: string }> };
     assert.ok(progress.timeline.some((event) => event.type === 'suborder_status' && event.suborderId === order.suborderIds[0] && event.fromStatus === 'pending' && event.toStatus === 'processing'));
     assert.ok(progress.timeline.every((event, index) => index === 0 || progress.timeline[index - 1]!.createdAt <= event.createdAt));
     const otherOnly = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 2, items: [{ sellerId: seller2, productId: product2, quantity: 1 }] });
-    await assert.rejects(service.transitionSeller(sellerUser1, otherOnly.orderId, 'processing'), (error: Error & { code?: string }) => error.code === 'SUBORDER_NOT_FOUND');
+    await assert.rejects(service.transitionSeller(sellerUser1, otherOnly.orderId, 'processing', 1), (error: Error & { code?: string }) => error.code === 'SUBORDER_NOT_FOUND');
+  });
+
+  it('lists and reads only the seller portion without customer delivery PII', async () => {
+    const owned = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 9, items: [{ sellerId: seller1, productId: product1, quantity: 2 }] });
+    const other = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 10, items: [{ sellerId: seller2, productId: product2, quantity: 1 }] });
+    const listed = await service.listSellerOrders(sellerUser1, { page: 1, limit: 10, status: 'pending', deliveryMethod: 'delivery' }) as { orders: Array<{ orderId: string; version: number; allowedTransitions: string[] }>; pagination: { total: number } };
+    assert.ok(listed.orders.some((entry) => entry.orderId === owned.orderId));
+    assert.ok(listed.orders.every((entry) => entry.orderId !== other.orderId));
+    assert.ok(listed.pagination.total >= 1);
+    const detail = await service.getSellerOrder(sellerUser1, owned.orderId) as { orderId: string; version: number; allowedTransitions: string[]; delivery: object; items: object[] };
+    assert.equal(detail.orderId, owned.orderId);
+    assert.equal(detail.version, 1);
+    assert.deepEqual(detail.allowedTransitions, ['processing']);
+    assert.equal(detail.items.length, 1);
+    assert.equal(JSON.stringify(detail.delivery).includes('Private Customer'), false);
+    assert.equal(JSON.stringify(detail.delivery).includes('+2348000000000'), false);
+    await assert.rejects(service.getSellerOrder(sellerUser1, other.orderId), (error: Error & { code?: string }) => error.code === 'SELLER_ORDER_NOT_FOUND');
+  });
+
+  it('marks pickup readiness and returns the immutable public pickup snapshot', async () => {
+    const order = await makeOrder({ status: 'awaiting_collection', paymentMethod: 'cod', deliveryMethod: 'pickup', suffix: 11, items: [{ sellerId: seller1, productId: product1, quantity: 1 }] });
+    const processing = await service.transitionSeller(sellerUser1, order.orderId, 'processing', 1) as { version: number; allowedTransitions: string[]; delivery: { method: string; pickupLocation: { name: string } } };
+    assert.equal(processing.version, 2);
+    assert.deepEqual(processing.allowedTransitions, ['ready_for_pickup']);
+    assert.equal(processing.delivery.method, 'pickup');
+    assert.equal(processing.delivery.pickupLocation.name, 'Synthetic Pickup Hub');
+    const ready = await service.transitionSeller(sellerUser1, order.orderId, 'ready_for_pickup', 2) as { status: string; version: number; allowedTransitions: string[] };
+    assert.equal(ready.status, 'ready_for_pickup');
+    assert.equal(ready.version, 3);
+    assert.deepEqual(ready.allowedTransitions, []);
+  });
+
+  it('accepts exactly one concurrent seller update for an expected version', async () => {
+    const order = await makeOrder({ status: 'awaiting_collection', paymentMethod: 'cod', suffix: 12, items: [{ sellerId: seller1, productId: product1, quantity: 1 }] });
+    const results = await Promise.allSettled([
+      service.transitionSeller(sellerUser1, order.orderId, 'processing', 1, 'First browser update'),
+      service.transitionSeller(sellerUser1, order.orderId, 'processing', 1, 'Stale browser update')
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    const rejected = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    assert.equal((rejected?.reason as { code?: string }).code, 'STALE_SELLER_ORDER_VERSION');
+    const detail = await service.getSellerOrder(sellerUser1, order.orderId) as { status: string; version: number };
+    assert.equal(detail.status, 'processing');
+    assert.equal(detail.version, 2);
   });
 
   it('cancels an unprocessed COD order and releases stock exactly once', async () => {

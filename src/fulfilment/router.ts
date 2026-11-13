@@ -10,7 +10,14 @@ import { FulfilmentService } from './service.js';
 
 const credential = z.string().min(32).max(200).regex(/^[A-Za-z0-9_-]+$/);
 const reason = z.string().trim().min(3).max(500);
-const sellerTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup']), reason: reason.optional() }).strict();
+const suborderStatusSchema = z.enum(['pending', 'processing', 'ready_for_pickup', 'shipped', 'delivered', 'picked_up', 'cancelled', 'returned', 'refunded']);
+const sellerListSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: suborderStatusSchema.optional(),
+  deliveryMethod: z.enum(['delivery', 'pickup']).optional()
+}).strict();
+const sellerTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup']), expectedVersion: z.number().int().min(1).safe(), reason: reason.optional() }).strict();
 const adminTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup', 'delivered', 'picked_up', 'cancelled']), reason: reason.optional() }).strict();
 const cancelSchema = z.object({ reason }).strict();
 const returnSchema = z.object({ items: z.array(z.object({ orderItemId: z.uuid(), quantity: z.number().int().min(1).max(20) }).strict()).min(1).max(50), reason }).strict();
@@ -42,10 +49,21 @@ export function createFulfilmentRouter(pool: Pool, fulfilment: FulfilmentService
     throw new AppError(401, 'ORDER_ACCESS_REQUIRED', 'Customer authentication or X-Order-Tracking-Token is required');
   };
 
+  router.get('/seller/orders', authenticated, requireRole('seller'), asyncRoute(async (req, res) => {
+    const query = sellerListSchema.parse(req.query);
+    const result = await fulfilment.listSellerOrders(req.authUser!.id, query);
+    res.json({ success: true, data: { orders: result.orders }, meta: { requestId: req.id, pagination: result.pagination } });
+  }));
+
+  router.get('/seller/orders/:orderId', authenticated, requireRole('seller'), asyncRoute(async (req, res) => {
+    const sellerOrder = await fulfilment.getSellerOrder(req.authUser!.id, z.uuid().parse(req.params.orderId));
+    res.json({ success: true, data: { sellerOrder }, meta: { requestId: req.id } });
+  }));
+
   router.patch('/seller/orders/:orderId/status', authenticated, requireRole('seller'), asyncRoute(async (req, res) => {
     const body = sellerTransitionSchema.parse(req.body);
-    const progress = await fulfilment.transitionSeller(req.authUser!.id, z.uuid().parse(req.params.orderId), body.status as SuborderStatus, body.reason);
-    res.json({ success: true, data: { fulfilment: progress }, meta: { requestId: req.id } });
+    const sellerOrder = await fulfilment.transitionSeller(req.authUser!.id, z.uuid().parse(req.params.orderId), body.status as SuborderStatus, body.expectedVersion, body.reason);
+    res.json({ success: true, data: { sellerOrder }, meta: { requestId: req.id } });
   }));
 
   router.patch('/admin/orders/:orderId/suborders/:suborderId/status', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {

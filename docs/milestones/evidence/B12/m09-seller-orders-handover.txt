@@ -1,0 +1,61 @@
+B12 M09 SELLER-ORDER FRONTEND HANDOVER EVIDENCE
+Date: 2026-11-11
+Status: LOCAL VERIFIED follow-up; B12 remains READY_FOR_REVIEW and is not owner-accepted.
+
+SCOPE VERIFIED
+- Added seller-only GET /api/v1/seller/orders with stable newest-first pagination and optional status/deliveryMethod filters.
+- Added seller-only GET /api/v1/seller/orders/:orderId with immutable items, commission snapshots, seller totals, redacted company-delivery data, public pickup data, and seller-only timeline.
+- Added mandatory expectedVersion to PATCH /api/v1/seller/orders/:orderId/status.
+- Added migration 015 seller_suborders.version; seller, admin, customer cancellation, system cancellation, and full-refund state writers increment seller-visible versions.
+- Documented the complete seller/admin transition matrix, pickup readiness, cancellation/refund boundaries, rejected transitions, and stale-update response.
+- No provider call, live credential, live money movement, or business-policy default was added.
+
+STATIC AND CONTRACT CHECKS
+- npm run lint: PASS, exit 0.
+- npm run typecheck: PASS, exit 0.
+- npm run build: PASS, exit 0.
+- postman spec lint docs/api/openapi.yaml --issueType syntax --no-report-events: PASS, OpenAPI 3.1, no issues.
+- Postman B12 smoke and maintained collection JSON parsing: PASS.
+- npm run postman:organize: PASS; maintained collection has 284 requests and frontend-handover/m09-seller-orders has 8 requests.
+- git diff --check: PASS; no whitespace errors.
+
+NORMAL WRAPPER DIAGNOSTIC
+- npm run test:api was attempted and stopped before discovery on the established Windows uv_os_get_passwd/ENOMEM condition inside tsx.
+- The documented process-local os.userInfo shim ran the unchanged tests. No application assertion failed in the blocked wrapper attempt.
+
+DETERMINISTIC TEST RESULTS
+- Shim unit suite: PASS, 25 passing, 0 failing, 0 skipped.
+- Shim API suite: PASS, 32 passing, 0 failing, 0 skipped.
+- Focused fulfilment API suite: PASS, 4 passing, 0 failing, 0 skipped.
+- Focused fulfilment MariaDB suite: PASS, 10 passing, 0 failing, 0 skipped. Coverage includes seller ownership isolation, delivery-PII redaction, pickup readiness, invalid transition rejection, and concurrent same-version updates where exactly one succeeds and the other returns STALE_SELLER_ORDER_VERSION.
+- Migration suite: PASS, 1 passing. The isolated MariaDB down/up cycle creates seller_suborders.version.
+- Complete MariaDB suite: PASS, 68 passing, 0 failing, 0 skipped in 55 seconds.
+- Socket.IO suite: PASS, 2 passing, 0 failing, 0 skipped.
+- Final deterministic total: 127 passing, 0 failing, 0 skipped.
+
+EXACT SHIM COMMANDS
+1. node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/unit/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+2. node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+3. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+4. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/socket/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+
+POSTMAN HANDOVER
+- Guarded test seed ran against legit_hair_app_test: 6 synthetic users, 2 synthetic approved sellers, and 2 synthetic checkout products.
+- Local test API used port 3109 with NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake, synthetic order policy values, COD enabled, and a synthetic guest-token secret. It was stopped after testing.
+- Standalone smoke command:
+  postman collection run postman/B12_Smoke.postman_collection.json -e postman/Local.postman_environment.json --env-var baseUrl=http://127.0.0.1:3109 --no-report-events --timeout-request 5000
+  Result: PASS, exit 0; 54 requests, 54 test scripts, 5 prerequest scripts, 88 assertions, zero failures.
+- Maintained handover command:
+  postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --env-var baseUrl=http://127.0.0.1:3109 --no-report-events --timeout-request 5000
+  Result: PASS, exit 0; 54 requests, 54 test scripts, 5 prerequest scripts, 88 assertions, zero failures.
+- The Postman CLI printed an offline feature-flag AggregateError before execution and cloud-publication guidance after local execution. Neither affected the local exit-0 runs.
+
+MIGRATION AND RECOVERY
+- 015_seller_order_versions.sql adds BIGINT UNSIGNED NOT NULL version with default 1 to seller_suborders.
+- 015_seller_order_versions.down.sql drops the column. It discards historical concurrency values, so production recovery should use a verified backup and a reviewed forward migration rather than routine down migration.
+- MariaDB verification is local only and does not establish production MySQL compatibility.
+
+OPEN GATES
+- Production MySQL migration/locking/restore verification.
+- Owner-approved seller, COD, return/refund, delivery/pickup, and earnings policies.
+- Provider accounts/evidence, object-storage retention/upload authorization, sender/DNS, deployment/capacity, owner UAT/training, and all live-money authority.

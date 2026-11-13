@@ -7,8 +7,15 @@ describe('B08 fulfilment API access controls', () => {
   const id = '10000000-0000-4000-8000-000000000001';
 
   it('requires seller authentication for seller fulfilment changes', async () => {
-    const response = await request(app).patch(`/api/v1/seller/orders/${id}/status`).send({ status: 'processing' }).expect(401);
+    const response = await request(app).patch(`/api/v1/seller/orders/${id}/status`).send({ status: 'processing', expectedVersion: 1 }).expect(401);
     assert.equal(response.body.error.code, 'UNAUTHENTICATED');
+  });
+
+  it('requires seller authentication for seller order reads', async () => {
+    const list = await request(app).get('/api/v1/seller/orders').expect(401);
+    assert.equal(list.body.error.code, 'UNAUTHENTICATED');
+    const detail = await request(app).get(`/api/v1/seller/orders/${id}`).expect(401);
+    assert.equal(detail.body.error.code, 'UNAUTHENTICATED');
   });
 
   it('requires admin authentication for refund review and COD reconciliation', async () => {

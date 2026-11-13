@@ -182,7 +182,7 @@ export class OrderService {
       }
       if (releasableStatuses.has(order.status)) await this.releaseActiveReservations(connection, orderId, reason);
       await connection.query('UPDATE orders SET status = ? WHERE id = ?', [toStatus, orderId]);
-      await connection.query('UPDATE seller_suborders SET status = ? WHERE order_id = ? AND status = ?', ['cancelled', orderId, 'pending']);
+      await connection.query('UPDATE seller_suborders SET status = ?, version = version + 1 WHERE order_id = ? AND status = ?', ['cancelled', orderId, 'pending']);
       await connection.query('INSERT INTO order_status_events (order_id, from_status, to_status, reason, actor_type, actor_user_id) VALUES (?, ?, ?, ?, ?, ?)', [orderId, order.status, toStatus, reason, actor.type, actor.userId ?? null]);
       await connection.commit();
       return true;

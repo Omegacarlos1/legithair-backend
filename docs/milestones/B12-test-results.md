@@ -1,6 +1,6 @@
 # B12 test results
 
-Date: 2026-10-30; updated 2026-11-10
+Date: 2026-10-30; updated 2026-11-11
 Status: READY_FOR_REVIEW
 
 ## Final local results
@@ -11,20 +11,20 @@ Status: READY_FOR_REVIEW
 | TypeScript type check | PASS | Exit 0 |
 | Production build | PASS | Exit 0 |
 | Unit tests | PASS | 25 passed, 0 failed, 0 skipped |
-| Supertest API tests | PASS | 31 passed, 0 failed, 0 skipped |
-| MariaDB integration tests | PASS | Final run: 65 passed, 0 failed, 0 skipped in 39 seconds |
+| Supertest API tests | PASS | 32 passed, 0 failed, 0 skipped |
+| MariaDB integration tests | PASS | Final run: 68 passed, 0 failed, 0 skipped in 55 seconds |
 | Socket.IO integration tests | PASS | Final isolated rerun: 2 passed, 0 failed, 0 skipped in 3 seconds; initial transient recorded below |
-| Total deterministic checks | PASS | 123 passed, 0 failed, 0 skipped |
+| Total deterministic checks | PASS | 127 passed, 0 failed, 0 skipped |
 | Migration rollback/forward | PASS | Repeated complete down/up cycles on isolated MariaDB |
 | Backup/restore rehearsal | PASS | Isolated restore, counts, rollback/up, final restore |
 | Operations snapshot | PASS | No overdue/stale/recovery conditions before load |
-| Provider-safe Postman smoke | PASS | Latest artifact: 47 requests, 76 assertions, zero failures |
+| Provider-safe Postman smoke | PASS | Latest artifact: 54 requests, 88 assertions, zero failures |
 | 50-VU browsing pilot | PASS | p95 82 ms, 0% errors/failures |
 | 10-VU checkout pilot | PASS | p95 89 ms, 0% errors/failures after fix |
 | OpenAPI syntax lint | PASS | OpenAPI 3.1, no issues |
 | Five Postman JSON artifacts | PASS | Parsed locally |
 | Postman cloud organization follow-up | PASS | Existing collection updated in place to 239 requests and 10 top-level folders; no duplicate collection or saved tokens |
-| Frontend Postman handover folder | PASS | 47 requests, 47 test scripts, 76 assertions, zero failures; includes M03, M04, and M06 account/order workflows |
+| Frontend Postman handover folder | PASS | 54 requests, 54 test scripts, 88 assertions, zero failures; includes M03, M04, M06, and M09 seller-order workflows |
 | Full Postman synthetic regression | PASS | 110 requests, 110 test scripts, 214 assertions, zero final failures |
 | Captured fake-email verification | PASS | 1 request, 2 assertions; token not printed or persisted |
 | Database-outage readiness request | NOT RUN | Requires intentionally stopping MariaDB; retained under `manual-regression` |
@@ -82,9 +82,19 @@ Final static/build checks passed. The documented host shim executed 25/25 unit, 
 
 OpenAPI 3.1 syntax lint initially identified one unquoted comma in an inline response description; after correction, the final lint exited 0 with no issues. Both Postman JSON collections parsed, organized deterministically to 277 requests, and executed successfully. The standalone smoke and maintained `frontend-handover` folder each passed 47/47 requests, 47/47 test scripts, and 76/76 assertions against the disposable MariaDB schema. Postman again reported only the offline feature-flag `AggregateError`; runs exited 0. `postman collection lint` exited 0 but scanned zero entities because these maintained exports are v2.1 rather than git-native v3. `postman status` is unavailable in the installed CLI and returned `unknown command`. See [M06 handover evidence](evidence/B12/m06-orders-account-handover.txt).
 
+## M09 seller-order handover follow-up (2026-11-11)
+
+Added seller-only `GET /api/v1/seller/orders` with stable pagination plus optional seller-portion status and delivery-method filters, and `GET /api/v1/seller/orders/:orderId` with immutable item, commission, delivery/pickup, and seller-net snapshots. A seller sees only its own suborder; company delivery omits customer recipient, phone, and street address, while pickup retains the public pickup snapshot. The contract returns `allowedTransitions` and integer `version`.
+
+Migration 015 initializes `seller_suborders.version` to `1`. Seller status writes require `expectedVersion`; the service locks the owned portion, returns `409 STALE_SELLER_ORDER_VERSION` with both versions when stale, and increments the version on every seller-visible state writer. The transition matrix is documented for seller preparation/dispatch/pickup readiness and staff-only completion/cancellation; paid cancellation remains routed through return/refund handling.
+
+Final static checks (`npm run lint`, `npm run typecheck`, `npm run build`) passed. The normal `npm run test:api` wrapper again stopped before discovery on the Windows `uv_os_get_passwd`/`ENOMEM` host condition. The documented shim then passed 25 unit, 32 API, 68 MariaDB integration, and 2 Socket.IO checks: 127 total, zero failures/skips. Focused coverage passed 4 API access checks, 10 fulfilment/refund MariaDB scenarios—including pickup readiness, ownership/PII redaction, and concurrent stale-write rejection—and the migration down/up check.
+
+`postman spec lint docs/api/openapi.yaml --issueType syntax --no-report-events` found no OpenAPI 3.1 issues. Both v2.1 collection JSON files parsed. The organizer produced 284 maintained requests and an eight-request `frontend-handover > m09-seller-orders` folder. The standalone provider-safe smoke and maintained handover each passed 54/54 requests, 54/54 test scripts, and 88/88 assertions on the disposable MariaDB database. Postman printed only its offline feature-flag `AggregateError`; both executions exited 0. See [M09 handover evidence](evidence/B12/m09-seller-orders-handover.txt).
+
 ## What the evidence establishes
 
 It establishes local regression behavior, guarded MariaDB recovery, a provider-safe smoke, exact-origin/security/error hardening, operations-state checks, and the two specified same-host synthetic pilot profiles. It does not establish production MySQL compatibility, hosted capacity, provider readiness, business-policy approval, deployment, staff training, or live-money safety.
 
-Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), [M03 basket handover](evidence/B12/m03-basket-handover.txt), and [M04 address/pickup handover](evidence/B12/m04-address-pickup-handover.txt).
+Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), [M03 basket handover](evidence/B12/m03-basket-handover.txt), [M04 address/pickup handover](evidence/B12/m04-address-pickup-handover.txt), and [M09 seller orders](evidence/B12/m09-seller-orders-handover.txt).
 

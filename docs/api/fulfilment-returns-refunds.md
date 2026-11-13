@@ -4,7 +4,79 @@ All routes use the standard success/error envelope. Customer routes accept eithe
 
 ## Fulfilment progress
 
-`PATCH /api/v1/seller/orders/:orderId/status` accepts `processing`, `shipped`, or `ready_for_pickup`. A delivery portion follows `pending -> processing -> shipped`; a pickup portion follows `pending -> processing -> ready_for_pickup`. The authenticated seller can change only its own portion.
+### Seller order workspace
+
+`GET /api/v1/seller/orders?page=1&limit=20&status=pending&deliveryMethod=delivery` lists only the authenticated seller's portions, newest first. `status` and `deliveryMethod` are optional. `page` defaults to `1`; `limit` defaults to `20` and is capped at `100`. `GET /api/v1/seller/orders/:orderId` returns the matching detail, immutable items and seller-portion timeline. An unknown order and another seller's order both return `404 SELLER_ORDER_NOT_FOUND`.
+
+Both reads return `version` and `allowedTransitions`. The delivery object is an immutable checkout snapshot. For company delivery it contains only the zone/estimate and deliberately omits the customer's recipient name, phone and street address. For pickup it contains the public pickup name, address and estimate.
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerOrder": {
+      "id": "92000000-0000-4000-8000-000000000001",
+      "orderId": "90000000-0000-4000-8000-000000000001",
+      "status": "processing",
+      "version": 2,
+      "allowedTransitions": ["shipped"],
+      "orderStatus": "processing",
+      "paymentMethod": "cod",
+      "currency": "NGN",
+      "delivery": { "method": "delivery", "zone": { "name": "Ikeja", "estimate": { "minBusinessDays": 1, "maxBusinessDays": 3 } } },
+      "totals": { "itemsSubtotalMinor": 100000, "deliveryFeeMinor": 5000, "commissionMinor": 10000, "sellerNetMinor": 90000 },
+      "itemCount": 1,
+      "fulfilledAt": null,
+      "createdAt": "2026-11-11T09:00:00.000Z",
+      "updatedAt": "2026-11-11T09:05:00.000Z",
+      "items": [{ "id": "91000000-0000-4000-8000-000000000001", "productId": "40000000-0000-4000-8000-000000000051", "productName": "Straight Wig", "quantity": 1, "unitPriceMinor": 100000, "lineTotalMinor": 100000, "commission": { "basis": "line_item_gross", "rateBps": 1000, "amountMinor": 10000 } }],
+      "timeline": [{ "id": "suborder:17", "fromStatus": "pending", "toStatus": "processing", "reason": "Preparing order", "createdAt": "2026-11-11T09:05:00.000Z" }]
+    }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
+
+`PATCH /api/v1/seller/orders/:orderId/status` accepts `processing`, `shipped`, or `ready_for_pickup` and requires the last read `version` as `expectedVersion`:
+
+```json
+{ "status": "shipped", "expectedVersion": 2, "reason": "Handed to company dispatcher" }
+```
+
+The successful response uses the detail shape above at `data.sellerOrder`, with the incremented version. A stale browser must stop and refetch on this exact conflict; it must not silently retry with a guessed version:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "STALE_SELLER_ORDER_VERSION",
+    "message": "Seller order changed after it was read",
+    "details": { "expectedVersion": 2, "currentVersion": 3 }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
+
+The complete transition matrix is:
+
+| Actor | From | To | Constraint |
+| --- | --- | --- | --- |
+| Seller or admin | `pending` | `processing` | Parent order must be paid, COD-awaiting-collection, or already in fulfilment |
+| Seller or admin | `processing` | `shipped` | Delivery orders only |
+| Seller or admin | `processing` | `ready_for_pickup` | Pickup orders only; this is the seller pickup-readiness action |
+| Admin only | `shipped` | `delivered` | Delivery orders only |
+| Admin only | `ready_for_pickup` | `picked_up` | Pickup orders only |
+| Admin only | `pending` or `processing` | `cancelled` | COD only; stock restoration is idempotent |
+
+All other jumps return `409 INVALID_FULFILMENT_TRANSITION`; mixing delivery and pickup states returns `409 INVALID_DELIVERY_TRANSITION` or `409 INVALID_PICKUP_TRANSITION`. A seller cannot cancel, complete delivery/pickup, approve a return, or issue a refund. A syntactically valid transition on an awaiting-payment, failed, expired, cancelled, returned or refunded parent order returns `409 ORDER_NOT_FULFILLABLE`. For example, `pending -> shipped` is rejected:
+
+```json
+{
+  "success": false,
+  "error": { "code": "INVALID_FULFILMENT_TRANSITION", "message": "Suborder cannot transition from pending to shipped" },
+  "meta": { "requestId": "request-id" }
+}
+```
 
 `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status` completes delivery with `shipped -> delivered`, completes pickup with `ready_for_pickup -> picked_up`, and may cancel an eligible unpaid COD portion before completion. Paid cancellations must use the return/refund workflow. Invalid jumps and delivery/pickup state mixing return `409`.
 
@@ -32,7 +104,7 @@ All routes use the standard success/error envelope. Customer routes accept eithe
 }
 ```
 
-`POST /api/v1/orders/:orderId/cancel` accepts `{ "reason": "..." }`. It cancels only an owned order whose portions are still pending and whose payment does not require a refund. Active stock reservations are released exactly once. A paid order returns `409 PAID_CANCELLATION_REQUIRES_RETURN`.
+`POST /api/v1/orders/:orderId/cancel` accepts `{ "reason": "..." }`. It cancels only an owned order whose portions are still pending and whose payment does not require a refund. Active stock reservations are released exactly once. Once any seller starts processing, cancellation returns `409 ORDER_CANCELLATION_TOO_LATE`. A paid order returns `409 PAID_CANCELLATION_REQUIRES_RETURN`; the customer must use the item-level return workflow after fulfilment instead. Sellers have no cancellation or refund route.
 
 ## COD collection
 

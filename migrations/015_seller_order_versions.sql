@@ -1,0 +1,2 @@
+ALTER TABLE seller_suborders
+  ADD COLUMN version BIGINT UNSIGNED NOT NULL DEFAULT 1 AFTER status;

@@ -380,13 +380,42 @@ paths:
       summary: Download the immutable JSON receipt for a timely verified payment
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: JSON receipt with Content-Disposition attachment }, '401': { description: Access credential required }, '404': { description: Receipt absent or inaccessible } }
+  /api/v1/seller/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List only the authenticated seller's order portions newest first
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/SuborderStatus' } }
+        - { name: deliveryMethod, in: query, schema: { type: string, enum: [delivery, pickup] } }
+      responses:
+        '200': { description: Seller-scoped order portions and stable pagination, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderListResponse' } } } }
+        '400': { description: Invalid pagination or filter }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+  /api/v1/seller/orders/{orderId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the authenticated seller's portion, items, fulfilment snapshot, and history
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Seller order detail without customer delivery PII, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderDetailResponse' } } } }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+        '404': { description: Order absent or owned by another seller }
   /api/v1/seller/orders/{orderId}/status:
     patch:
       security: [{ bearerAuth: [] }]
       summary: Advance only the authenticated seller's portion through processing and dispatch or pickup readiness
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
-      responses: { '200': { description: Seller portion advanced and aggregate progress returned }, '401': { description: Authentication required }, '403': { description: Seller role required }, '404': { description: No portion owned by this seller }, '409': { description: Invalid transition or delivery-method mismatch } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderTransition' } } } }
+      responses:
+        '200': { description: Seller portion advanced and returned at the next version, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderDetailResponse' } } } }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+        '404': { description: No portion owned by this seller }
+        '409': { description: 'Stale version, invalid transition, non-fulfillable order, or delivery-method mismatch' }
   /api/v1/admin/orders/{orderId}/suborders/{suborderId}/status:
     patch:
       security: [{ bearerAuth: [] }]
@@ -808,6 +837,113 @@ components:
         items: { type: array, items: { $ref: '#/components/schemas/CustomerOrderItem' } }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+    SuborderStatus:
+      type: string
+      enum: [pending, processing, ready_for_pickup, shipped, delivered, picked_up, cancelled, returned, refunded]
+    SellerDelivery:
+      oneOf:
+        - type: object
+          required: [method, zone]
+          additionalProperties: false
+          properties:
+            method: { const: delivery }
+            zone: { type: [object, 'null'], description: Immutable zone and estimate snapshot; customer recipient, phone, and street address are never included. }
+        - type: object
+          required: [method, pickupLocation]
+          additionalProperties: false
+          properties:
+            method: { const: pickup }
+            pickupLocation:
+              type: [object, 'null']
+              properties:
+                name: { type: string }
+                addressLine: { type: string }
+                city: { type: string }
+                state: { type: string }
+                estimate: { type: object }
+    SellerOrderSummary:
+      type: object
+      required: [id, orderId, status, version, allowedTransitions, orderStatus, paymentMethod, currency, delivery, totals, itemCount, fulfilledAt, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid, description: Seller-specific suborder identifier. }
+        orderId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/SuborderStatus' }
+        version: { type: integer, minimum: 1, description: Opaque optimistic-concurrency version to echo as expectedVersion. }
+        allowedTransitions: { type: array, items: { type: string, enum: [processing, shipped, ready_for_pickup] } }
+        orderStatus: { type: string }
+        paymentMethod: { type: string, enum: [paystack, cod] }
+        currency: { const: NGN }
+        delivery: { $ref: '#/components/schemas/SellerDelivery' }
+        totals:
+          type: object
+          required: [itemsSubtotalMinor, deliveryFeeMinor, commissionMinor, sellerNetMinor]
+          additionalProperties: false
+          properties:
+            itemsSubtotalMinor: { type: integer, minimum: 0 }
+            deliveryFeeMinor: { type: integer, minimum: 0 }
+            commissionMinor: { type: integer, minimum: 0 }
+            sellerNetMinor: { type: integer, minimum: 0 }
+        itemCount: { type: integer, minimum: 0 }
+        fulfilledAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SellerOrderDetail:
+      allOf:
+        - { $ref: '#/components/schemas/SellerOrderSummary' }
+        - type: object
+          required: [items, timeline]
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [id, productId, productName, quantity, unitPriceMinor, lineTotalMinor, commission]
+                additionalProperties: false
+                properties:
+                  id: { type: string, format: uuid }
+                  productId: { type: string, format: uuid }
+                  productName: { type: string }
+                  quantity: { type: integer, minimum: 1 }
+                  unitPriceMinor: { type: integer, minimum: 0 }
+                  lineTotalMinor: { type: integer, minimum: 0 }
+                  commission: { type: object }
+            timeline:
+              type: array
+              items:
+                type: object
+                required: [id, fromStatus, toStatus, reason, createdAt]
+                additionalProperties: false
+                properties:
+                  id: { type: string, pattern: '^suborder:[0-9]+$' }
+                  fromStatus: { type: string }
+                  toStatus: { type: string }
+                  reason: { type: [string, 'null'] }
+                  createdAt: { type: string, format: date-time }
+    SellerOrderListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [orders], additionalProperties: false, properties: { orders: { type: array, items: { $ref: '#/components/schemas/SellerOrderSummary' } } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
+    SellerOrderDetailResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [sellerOrder], additionalProperties: false, properties: { sellerOrder: { $ref: '#/components/schemas/SellerOrderDetail' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    SellerOrderTransition:
+      type: object
+      required: [status, expectedVersion]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [processing, shipped, ready_for_pickup] }
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
     OrderListResponse:
       type: object
       required: [success, data, meta]
