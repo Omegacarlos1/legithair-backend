@@ -2,6 +2,8 @@
 
 Status: READY_FOR_REVIEW on 2026-10-30; owner acceptance is not inferred.
 
+2026-11-17 M15 follow-up: Added admin-only staff list/detail, verified-account support/finance grant/revoke with reason and self-change guard, target-session revocation, transactional role audit, and a redacted read-only audit feed for staff roles, sellers, products, delivery configuration, and banners. Migration 017 creates `staff_role_audit_events`; rollback drops that table and loses its history, so preserve a backup before rollback. Updated OpenAPI, `docs/api/staff-audit.md`, Postman collection/environment, and handover. `npm run lint`, `npm run typecheck`, and `npm run build` passed; `npm run test:unit` executed zero tests because Node/tsx failed with `uv_os_get_passwd` ENOMEM. Database migration, API/Postman checks, production MySQL, retention, and owner acceptance remain open. Evidence: `docs/milestones/evidence/B12/m15-followup.txt`.
+
 ## Completed scope
 
 - Added exact-origin CORS, security headers, explicit proxy trust, safe JSON body errors, stricter production configuration, and lower-risk logging for expected client failures.

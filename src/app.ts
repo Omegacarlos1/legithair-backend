@@ -26,6 +26,7 @@ import { createReviewRouter } from './reviews/router.js';
 import { createMerchandisingRouter } from './merchandising/router.js';
 import { createReportingRouter } from './reporting/router.js';
 import { createSupportRouter } from './support/router.js';
+import { createStaffRouter } from './staff/router.js';
 import { createMarketingRouter } from './marketing/router.js';
 import { ZodError } from 'zod';
 import { configureTrustProxy, corsGuard, securityHeaders } from './http/security.js';
@@ -80,6 +81,7 @@ export function createApp({ pool, logger, readinessTimeoutMs, nodeEnv = 'test', 
   app.use('/api/v1', createMerchandisingRouter(pool));
   app.use('/api/v1', createReportingRouter(pool));
   app.use('/api/v1', createSupportRouter(pool));
+  app.use('/api/v1', createStaffRouter(pool));
   app.use('/api/v1', createMarketingRouter(pool, marketingUnsubscribeBaseUrl));
   app.use((_req, _res, next) => next(new AppError(404, 'NOT_FOUND', 'Route not found')));
   const errorHandler: ErrorRequestHandler = (error, req, res, next) => {

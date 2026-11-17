@@ -9506,6 +9506,115 @@
           ]
         }
       ]
+    },
+    {
+      "name": "M15 staff and audit",
+      "item": [
+        {
+          "name": "List staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.staff).to.be.an(\"array\"); pm.expect(b.meta.pagination.page).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read staff account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff/{{staffUserId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.staff.id).to.eql(pm.environment.get(\"staffUserId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Grant support",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff/{{staffUserId}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"support\",\n  \"action\": \"grant\",\n  \"reason\": \"Assigned to support queue\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.role).to.eql(\"support\"); pm.expect(b.data.assigned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List staff role audit",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/audit-events?source=staff_role&page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.events).to.be.an(\"array\"); pm.expect(b.meta.pagination.page).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "variable": [

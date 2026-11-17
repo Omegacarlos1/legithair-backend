@@ -2,6 +2,23 @@ openapi: 3.1.0
 info: { title: Legit Hair Backend, version: 0.1.0 }
 servers: [{ url: 'http://127.0.0.1:3000' }]
 paths:
+  /api/v1/admin/staff:
+    get:
+      summary: List staff accounts with roles
+      responses: { '200': { description: Staff in data.staff and meta.pagination }, '401': { description: Authentication required }, '403': { description: Admin required } }
+  /api/v1/admin/staff/{userId}:
+    get:
+      summary: Read account roles
+      responses: { '200': { description: Account in data.staff }, '403': { description: Admin required }, '404': { description: Account not found } }
+  /api/v1/admin/staff/{userId}/roles:
+    patch:
+      summary: Grant or revoke support or finance with a reason
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [role, action, reason], additionalProperties: false, properties: { role: { type: string, enum: [support, finance] }, action: { type: string, enum: [grant, revoke] }, reason: { type: string, minLength: 10, maxLength: 500 } } } } } }
+      responses: { '200': { description: Role state and changed flag }, '400': { description: Invalid input }, '403': { description: Admin required or self-change }, '404': { description: Account not found }, '409': { description: Target email unverified } }
+  /api/v1/admin/audit-events:
+    get:
+      summary: List redacted read-only audit events
+      responses: { '200': { description: Events in data.events and meta.pagination }, '400': { description: Invalid filter }, '403': { description: Admin required } }
   /health:
     get:
       summary: Process liveness
