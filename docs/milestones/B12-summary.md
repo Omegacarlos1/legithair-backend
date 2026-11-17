@@ -74,3 +74,15 @@ Harden the B01-B11 backend for B12 review with exact CORS/security/proxy control
 
 There is no B13. Review [the backend handover](../operations/backend-handover.md), [release runbook](../operations/release-runbook.md), [backup/restore procedure](../operations/backup-restore.md), this summary, and the test evidence. The owner should either accept B12 with explicitly recorded exceptions or return a bounded defect/gate list. Do not merge, deploy, change DNS, introduce live credentials, or move money solely because local B12 checks passed.
 
+# 2026-11-16 M12 admin follow-up
+
+Added admin seller and order list/detail reads, redacted suborder snapshots and required `expectedVersion` for admin fulfilment actions. Updated OpenAPI, narrative contracts, Postman and `docs/operations/m12-admin-handover.md`. No migration or policy change. Rollback is code reversion; existing data is unchanged. Lint, typecheck and build passed; test execution was blocked before discovery by local Node/tsx ENOMEM. B12 stays READY_FOR_REVIEW pending owner acceptance and previously listed production gates.
+
+
+# 2026-11-16 M13 admin delivery and returns follow-up
+
+Added admin reads for inactive zones and pickup locations, paginated admin return list/detail reads, and versioned external-courier assignment for processing or shipped delivery portions. Migration 016 creates current assignment and immutable assignment-event tables; its down migration drops both and loses assignment history, so restore from backup before rollback if data exists. Updated OpenAPI, narrative contracts, Postman collection/environment, and docs/operations/m13-admin-delivery-returns-handover.md. No Paystack refund was tested and no production policy default changed. Lint, typecheck, and build passed; integration tests could not start due to local Node/tsx uv_os_get_passwd ENOMEM. B12 remains READY_FOR_REVIEW and M13 is not approved.
+
+# 2026-11-17 M14 admin finance follow-up
+
+Added read-only admin/finance payment status list/detail, payment-ledger transaction list, and payment review-case list under src/finance. Added OpenAPI, docs/api/finance-reads.md, Postman M14 folder, and a redaction/decimal-string unit case. No migration or policy default changed. Rollback is code reversion; persisted financial data is untouched. Lint, typecheck, and build passed. Unit and API Mocha commands could not start because of local Node/tsx uv_os_get_passwd ENOMEM. The frontend M14 overview and report integration passed npm run check and a 2/2 synthetic desktop/mobile browser journey. Backend database/Postman execution, production MySQL, provider evidence, live-money authority, and backend acceptance remain open. The owner approved the bounded frontend M14 slice on 2026-11-17; B12 stays READY_FOR_REVIEW.

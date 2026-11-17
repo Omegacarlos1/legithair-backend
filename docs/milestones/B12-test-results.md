@@ -98,3 +98,15 @@ It establishes local regression behavior, guarded MariaDB recovery, a provider-s
 
 Evidence: [automated tests](evidence/B12/automated-tests.txt), [database recovery](evidence/B12/database-recovery.txt), [performance](evidence/B12/performance.txt), [Postman/contract/security](evidence/B12/postman-contract-security.txt), [Postman cloud sync](evidence/B12/postman-cloud-sync.txt), [frontend Postman handover](evidence/B12/frontend-handover-postman.txt), [full Postman regression](evidence/B12/full-postman-regression.txt), [password-recovery Postman follow-up](evidence/B12/password-recovery-postman.txt), [M03 basket handover](evidence/B12/m03-basket-handover.txt), [M04 address/pickup handover](evidence/B12/m04-address-pickup-handover.txt), and [M09 seller orders](evidence/B12/m09-seller-orders-handover.txt).
 
+# 2026-11-16 M12 admin follow-up
+
+Admin read and concurrency regression cases were added. `npm run lint`, `npm run typecheck`, and `npm run build` passed. Unit, API, and integration Mocha commands stopped before test discovery due to the local Node/tsx `uv_os_get_passwd` `ENOMEM` error; 0 assertions ran for this follow-up. See `docs/milestones/evidence/B12/m12-admin-followup.txt`. Run the suites in a healthy local environment before claiming local verification.
+
+
+# 2026-11-16 M13 admin follow-up
+
+Executed npm run lint (pass), npm run typecheck (pass), npm run build (pass), and npm run test:integration (blocked before test discovery; 0 assertions). The integration output is docs/milestones/evidence/B12/m13-admin-followup.txt and records Node/tsx uv_os_get_passwd ENOMEM. The added assignment integration case is written but unexecuted. Migration 016, API routes, and Postman folder were not run against a database in this follow-up; no local MySQL or provider result is claimed.
+
+# 2026-11-17 M14 admin finance follow-up
+
+Executed npm run lint (pass), npm run typecheck (pass), npm run build (pass), npm run test:unit (blocked before test discovery; 0 assertions), and npm run test:api (blocked before test discovery; 0 assertions). Unit/API output is docs/milestones/evidence/B12/m14-finance-unit.txt and m14-finance-api.txt; both record Node/tsx uv_os_get_passwd ENOMEM. The finance read unit case was written but unexecuted. No database migration was needed. The new backend routes and Postman M14 folder were not executed against MySQL or MariaDB in this follow-up. Frontend npm run check passed 43 Vitest files/151 tests, and synthetic Playwright desktop/mobile finance journeys passed 2/2. No provider or live-money check was run.

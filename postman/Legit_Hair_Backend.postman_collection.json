@@ -1517,11 +1517,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerOneSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -1548,11 +1563,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerTwoSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -1580,11 +1610,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/suborders/{{b08CodSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5622,11 +5667,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerOneSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5653,11 +5713,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerTwoSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5966,11 +6041,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/suborders/{{b08CodSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -8558,11 +8648,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"cancelled\",\"reason\":\"Provider-safe M09 handover cleanup\"}"
+                  "raw": "{\"status\":\"cancelled\",\"reason\":\"Provider-safe M09 handover cleanup\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{m06GuestOrderId}}/suborders/{{m09SuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -8910,6 +9015,493 @@
                   }
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M12 admin seller and order reads",
+      "item": [
+        {
+          "name": "M12 admin seller list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/sellers?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.sellers).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin seller detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/sellers/{{sellerId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.seller).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin order list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.orders).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.order).to.exist; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M13 admin delivery and returns",
+      "item": [
+        {
+          "name": "List all zones including inactive",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/delivery-zones"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.zones).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read zone",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/delivery-zones/{{deliveryZoneId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.zone.id).to.eql(pm.environment.get(\"deliveryZoneId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all pickup locations including inactive",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/pickup-locations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.pickupLocations).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read pickup location",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/pickup-locations/{{b05PickupId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.pickupLocation.id).to.eql(pm.environment.get(\"b05PickupId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List admin returns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/returns?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.returns).to.be.an(\"array\"); pm.expect(b.meta.pagination).to.exist; if (b.data.returns.length) pm.environment.set(\"m13ReturnId\", b.data.returns[0].id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read selected return",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/returns/{{m13ReturnId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.returnRequest.id).to.eql(pm.environment.get(\"m13ReturnId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read delivery order for version",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); const s = b.data.order.suborders.find(x => x.id === pm.environment.get(\"m13SuborderId\")); pm.expect(s).to.exist; pm.environment.set(\"m13ExpectedVersion\", s.version); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign external courier to shipped portion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"courierName\": \"Synthetic Courier\", \"courierReference\": \"dispatch-fixture-001\", \"expectedVersion\": {{m13ExpectedVersion}} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.assignment.courierReference).to.eql(\"dispatch-fixture-001\"); pm.environment.set(\"m13CurrentVersion\", b.data.version); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read canonical assignment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.assignment.courierReference).to.eql(\"dispatch-fixture-001\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject stale courier assignment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"courierName\": \"Synthetic Courier\", \"courierReference\": \"dispatch-fixture-stale\", \"expectedVersion\": {{m13ExpectedVersion}} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"stale update rejected\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"stale version code\", () => pm.expect(pm.response.json().error.code).to.eql(\"STALE_SELLER_ORDER_VERSION\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M14 finance reads",
+      "item": [
+        {
+          "name": "Paginated payment status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('payment list and pagination', () => { const b = pm.response.json(); pm.expect(b.data.payments).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; if (b.data.payments.length) pm.environment.set('m14PaymentId', b.data.payments[0].id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment detail by selected ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments/{{m14PaymentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('payment detail and review cases', () => { const b = pm.response.json(); pm.expect(b.data.payment.id).to.eql(pm.environment.get('m14PaymentId')); pm.expect(b.data.payment.reviewCases).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment ledger transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/transactions?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('finance response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.transactions).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment reconciliation cases",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payment-review-cases?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('finance response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.reviewCases).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject seller finance access",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sellerAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('forbidden', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
             }
           ]
         }

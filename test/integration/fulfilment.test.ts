@@ -136,6 +136,43 @@ describe('B08 fulfilment, returns, refunds, and COD reconciliation against Maria
     await assert.rejects(service.getSellerOrder(sellerUser1, other.orderId), (error: Error & { code?: string }) => error.code === 'SELLER_ORDER_NOT_FOUND');
   });
 
+  it('lists admin orders and exposes redacted versioned portions', async () => {
+    const order = await makeOrder({ status: 'paid', paymentMethod: 'paystack', suffix: 19, items: [{ sellerId: seller1, productId: product1, quantity: 1 }] });
+    const listed = await service.listAdminOrders({ page: 1, limit: 100, status: 'paid', paymentMethod: 'paystack' }) as { orders: Array<{ id: string }>; pagination: { total: number } };
+    assert.ok(listed.orders.some((entry) => entry.id === order.orderId));
+    assert.ok(listed.pagination.total >= 1);
+    const detail = await service.getAdminOrder(order.orderId) as { suborders: Array<{ id: string; version: number; allowedTransitions: string[] }>; delivery: object };
+    assert.equal(detail.suborders[0]!.id, order.suborderIds[0]);
+    assert.equal(detail.suborders[0]!.version, 1);
+    assert.deepEqual(detail.suborders[0]!.allowedTransitions, ['processing']);
+    assert.equal(JSON.stringify(detail.delivery).includes('Private Customer'), false);
+    await assert.rejects(service.getAdminOrder('00000000-0000-4000-8000-000000000000'), (error: Error & { code?: string }) => error.code === 'ORDER_NOT_FOUND');
+  });
+
+  it('rejects stale admin fulfilment updates', async () => {
+    const order = await makeOrder({ status: 'awaiting_collection', paymentMethod: 'cod', suffix: 20, items: [{ sellerId: seller1, productId: product1, quantity: 1 }] });
+    await service.transitionAdmin(adminId, order.orderId, order.suborderIds[0]!, 'processing', 1);
+    await assert.rejects(service.transitionAdmin(adminId, order.orderId, order.suborderIds[0]!, 'shipped', 1), (error: Error & { code?: string }) => error.code === 'STALE_SELLER_ORDER_VERSION');
+  });
+
+  it('assigns and reassigns an external courier only to a shipped delivery portion with a fresh version', async () => {
+    const order = await makeOrder({ status: 'shipped', paymentMethod: 'paystack', suffix: 21, items: [{ sellerId: seller1, productId: product1, quantity: 1, status: 'shipped' }] });
+    const suborderId = order.suborderIds[0]!;
+    assert.equal(await service.getDeliveryAssignment(order.orderId, suborderId), null);
+    const first = await service.assignDelivery(adminId, order.orderId, suborderId, 'Example Courier', 'dispatch-001', 1);
+    assert.equal(first.version, 2);
+    assert.deepEqual((first.assignment as { courierReference: string }).courierReference, 'dispatch-001');
+    await assert.rejects(service.assignDelivery(adminId, order.orderId, suborderId, 'Other Courier', 'dispatch-002', 1), { code: 'STALE_SELLER_ORDER_VERSION' });
+    const second = await service.assignDelivery(adminId, order.orderId, suborderId, 'Other Courier', 'dispatch-002', 2);
+    assert.equal(second.version, 3);
+    const [events] = await pool.query<RowDataPacket[]>('SELECT id FROM delivery_assignment_events WHERE suborder_id = ?', [suborderId]);
+    assert.equal(events.length, 2);
+    await service.transitionAdmin(adminId, order.orderId, suborderId, 'delivered', 3);
+    await assert.rejects(service.assignDelivery(adminId, order.orderId, suborderId, 'Late Courier', 'dispatch-003', 4), { code: 'DELIVERY_ASSIGNMENT_UNAVAILABLE' });
+    const pickup = await makeOrder({ status: 'awaiting_collection', paymentMethod: 'cod', deliveryMethod: 'pickup', suffix: 22, items: [{ sellerId: seller2, productId: product2, quantity: 1, status: 'ready_for_pickup' }] });
+    await assert.rejects(service.assignDelivery(adminId, pickup.orderId, pickup.suborderIds[0]!, 'Example Courier', 'dispatch-004', 1), { code: 'DELIVERY_ASSIGNMENT_UNAVAILABLE' });
+  });
+
   it('marks pickup readiness and returns the immutable public pickup snapshot', async () => {
     const order = await makeOrder({ status: 'awaiting_collection', paymentMethod: 'cod', deliveryMethod: 'pickup', suffix: 11, items: [{ sellerId: seller1, productId: product1, quantity: 1 }] });
     const processing = await service.transitionSeller(sellerUser1, order.orderId, 'processing', 1) as { version: number; allowedTransitions: string[]; delivery: { method: string; pickupLocation: { name: string } } };

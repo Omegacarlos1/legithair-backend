@@ -47,6 +47,7 @@ interface CountRow extends RowDataPacket { total: number | string }
 interface ProductIdRow extends RowDataPacket { id: string }
 interface OrderStatusEventRow extends RowDataPacket { id: number | string; from_status: string | null; to_status: string; reason: string; created_at: Date }
 interface FulfilmentEventRow extends RowDataPacket { id: number | string; suborder_id: string; from_status: string; to_status: string; reason: string | null; created_at: Date }
+interface AssignmentRow extends RowDataPacket { suborder_id: string; courier_name: string; courier_reference: string; assigned_at: Date; updated_at: Date }
 
 const sellerTransitions: Record<string, SuborderStatus[]> = {
   pending: ['processing'],
@@ -82,14 +83,90 @@ export class FulfilmentService {
     return this.sellerOrderView(await this.sellerId(actorUserId), orderId);
   }
 
+  public async listAdminOrders(query: { page: number; limit: number; status?: string; paymentMethod?: 'paystack' | 'cod' }): Promise<{ orders: object[]; pagination: object }> {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (query.status) { clauses.push('o.status = ?'); params.push(query.status); }
+    if (query.paymentMethod) { clauses.push('o.payment_method = ?'); params.push(query.paymentMethod); }
+    const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
+    const [counts] = await this.pool.query<CountRow[]>(`SELECT COUNT(*) AS total FROM orders o${where}`, params);
+    const [rows] = await this.pool.query<OrderRow[]>(`SELECT o.* FROM orders o${where} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`, [...params, query.limit, (query.page - 1) * query.limit]);
+    const total = Number(counts[0]!.total);
+    return { orders: rows.map((row) => ({ id: row.id, status: row.status, paymentMethod: row.payment_method, currency: row.currency, grandTotalMinor: moneyValue(row.grand_total_minor), deliveryMethod: row.delivery_method, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() })), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
+  }
+
+  public async getAdminOrder(orderId: string): Promise<object> {
+    const [orders] = await this.pool.query<OrderRow[]>('SELECT * FROM orders WHERE id = ?', [orderId]);
+    const order = orders[0];
+    if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    const [rows] = await this.pool.query<SellerOrderRow[]>(`${sellerOrderSelect()} WHERE ss.order_id = ? ORDER BY ss.id`, [orderId]);
+    const suborders = await Promise.all(rows.map((row) => this.sellerOrderView(row.seller_id, orderId)));
+    const assignments = await Promise.all(rows.map((row) => this.assignmentView(row.id)));
+    return { id: order.id, status: order.status, paymentMethod: order.payment_method, currency: order.currency, grandTotalMinor: moneyValue(order.grand_total_minor), deliveryTotalMinor: moneyValue(order.delivery_total_minor), deliveryMethod: order.delivery_method, delivery: sellerDelivery(order.delivery_method, order.destination_snapshot), suborders: suborders.map((detail, index) => ({ ...detail as object, sellerId: rows[index]!.seller_id, allowedTransitions: allowedAdminTransitions(rows[index]!), deliveryAssignment: assignments[index] })), createdAt: order.created_at.toISOString(), updatedAt: order.updated_at.toISOString() };
+  }
+
+  public async getDeliveryAssignment(orderId: string, suborderId: string): Promise<object | null> {
+    await this.assertDeliverySuborder(orderId, suborderId);
+    return this.assignmentView(suborderId);
+  }
+
+  public async assignDelivery(actorUserId: string, orderId: string, suborderId: string, courierName: string, courierReference: string, expectedVersion: number): Promise<{ assignment: object; version: number }> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const [orders] = await connection.query<OrderRow[]>('SELECT * FROM orders WHERE id = ? FOR UPDATE', [orderId]);
+      if (!orders[0]) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+      const [rows] = await connection.query<SuborderRow[]>('SELECT * FROM seller_suborders WHERE id = ? AND order_id = ? FOR UPDATE', [suborderId, orderId]);
+      const row = rows[0];
+      if (!row) throw new AppError(404, 'SUBORDER_NOT_FOUND', 'Seller order portion not found');
+      if (Number(row.version) !== expectedVersion) throw new AppError(409, 'STALE_SELLER_ORDER_VERSION', 'Seller order changed after it was read', { expectedVersion, currentVersion: Number(row.version) });
+      if (orders[0].delivery_method !== 'delivery' || !['processing', 'shipped'].includes(row.status)) throw new AppError(409, 'DELIVERY_ASSIGNMENT_UNAVAILABLE', 'Assignment requires a processing or shipped delivery portion');
+      await connection.query('INSERT INTO delivery_assignments (suborder_id, courier_name, courier_reference, assigned_by) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE courier_name = VALUES(courier_name), courier_reference = VALUES(courier_reference), assigned_by = VALUES(assigned_by), assigned_at = NOW(3)', [suborderId, courierName, courierReference, actorUserId]);
+      await connection.query('INSERT INTO delivery_assignment_events (suborder_id, courier_name, courier_reference, actor_user_id) VALUES (?, ?, ?, ?)', [suborderId, courierName, courierReference, actorUserId]);
+      await connection.query('UPDATE seller_suborders SET version = version + 1 WHERE id = ?', [suborderId]);
+      await connection.commit();
+      return { assignment: (await this.assignmentView(suborderId))!, version: Number(row.version) + 1 };
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  }
+
+  private async assertDeliverySuborder(orderId: string, suborderId: string): Promise<void> {
+    const [orders] = await this.pool.query<OrderRow[]>('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!orders[0]) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+    const [rows] = await this.pool.query<SuborderRow[]>('SELECT * FROM seller_suborders WHERE id = ? AND order_id = ?', [suborderId, orderId]);
+    if (!rows[0]) throw new AppError(404, 'SUBORDER_NOT_FOUND', 'Seller order portion not found');
+    if (orders[0].delivery_method !== 'delivery') throw new AppError(409, 'DELIVERY_ASSIGNMENT_UNAVAILABLE', 'Pickup portions cannot have delivery assignments');
+  }
+
+  private async assignmentView(suborderId: string): Promise<object | null> {
+    const [rows] = await this.pool.query<AssignmentRow[]>('SELECT * FROM delivery_assignments WHERE suborder_id = ?', [suborderId]);
+    const row = rows[0];
+    return row ? { suborderId: row.suborder_id, courierName: row.courier_name, courierReference: row.courier_reference, assignedAt: row.assigned_at.toISOString(), updatedAt: row.updated_at.toISOString() } : null;
+  }
+
+  public async listAdminReturns(query: { page: number; limit: number; status?: string; orderId?: string }): Promise<{ returns: object[]; pagination: object }> {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (query.status) { clauses.push('status = ?'); params.push(query.status); }
+    if (query.orderId) { clauses.push('order_id = ?'); params.push(query.orderId); }
+    const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
+    const [counts] = await this.pool.query<CountRow[]>(`SELECT COUNT(*) AS total FROM return_requests${where}`, params);
+    const [rows] = await this.pool.query<ReturnRow[]>(`SELECT * FROM return_requests${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, [...params, query.limit, (query.page - 1) * query.limit]);
+    const total = Number(counts[0]!.total);
+    return { returns: rows.map((row) => ({ id: row.id, orderId: row.order_id, status: row.status, reason: row.reason, actionable: row.status === 'requested', createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() })), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
+  }
+
+  public async getAdminReturn(returnId: string): Promise<object> {
+    return this.returnView(returnId);
+  }
+
   public async transitionSeller(actorUserId: string, orderId: string, toStatus: SuborderStatus, expectedVersion: number, reason?: string): Promise<object> {
     const sellerId = await this.sellerId(actorUserId);
     await this.transitionSuborder(actorUserId, 'seller', orderId, undefined, sellerId, toStatus, reason, expectedVersion);
     return this.sellerOrderView(sellerId, orderId);
   }
 
-  public async transitionAdmin(actorUserId: string, orderId: string, suborderId: string, toStatus: SuborderStatus, reason?: string): Promise<object> {
-    return this.transitionSuborder(actorUserId, 'admin', orderId, suborderId, undefined, toStatus, reason);
+  public async transitionAdmin(actorUserId: string, orderId: string, suborderId: string, toStatus: SuborderStatus, expectedVersion: number, reason?: string): Promise<object> {
+    return this.transitionSuborder(actorUserId, 'admin', orderId, suborderId, undefined, toStatus, reason, expectedVersion);
   }
 
   public async cancelOrder(access: ReturnOwner, orderId: string, reason: string): Promise<object> {
@@ -329,7 +406,7 @@ export class FulfilmentService {
       const [rows] = await connection.query<SuborderRow[]>(`SELECT * FROM seller_suborders WHERE order_id = ? AND ${suborderId ? 'id' : 'seller_id'} = ? FOR UPDATE`, [orderId, suborderId ?? sellerId]);
       const suborder = rows[0];
       if (!suborder) throw new AppError(404, 'SUBORDER_NOT_FOUND', 'Seller order portion not found');
-      if (actorType === 'seller' && Number(suborder.version) !== expectedVersion) {
+      if (Number(suborder.version) !== expectedVersion) {
         throw new AppError(409, 'STALE_SELLER_ORDER_VERSION', 'Seller order changed after it was read', { expectedVersion, currentVersion: Number(suborder.version) });
       }
       const allowed = actorType === 'seller' ? sellerTransitions[suborder.status] ?? [] : adminTransitions[suborder.status] ?? [];
@@ -531,7 +608,7 @@ export class FulfilmentService {
     if (!row) throw new AppError(404, 'RETURN_REQUEST_NOT_FOUND', 'Return request not found');
     const [items] = await this.pool.query<ReturnItemRow[]>('SELECT * FROM return_request_items WHERE return_request_id = ? ORDER BY order_item_id', [returnId]);
     const [refunds] = await this.pool.query<RefundRow[]>('SELECT * FROM refunds WHERE return_request_id = ?', [returnId]);
-    return { id: row.id, orderId: row.order_id, reason: row.reason, status: row.status, adminNote: row.admin_note, items: items.map((item) => ({ orderItemId: item.order_item_id, quantity: item.quantity, itemRefundMinor: moneyValue(item.item_refund_minor), commissionReversalMinor: moneyValue(item.commission_reversal_minor), sellerReversalMinor: moneyValue(item.seller_reversal_minor), stockDisposition: item.stock_disposition })), refund: refunds[0] ? refundObject(refunds[0]) : null, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() };
+    return { id: row.id, orderId: row.order_id, reason: row.reason, status: row.status, actionable: row.status === 'requested', adminNote: row.admin_note, items: items.map((item) => ({ orderItemId: item.order_item_id, quantity: item.quantity, itemRefundMinor: moneyValue(item.item_refund_minor), commissionReversalMinor: moneyValue(item.commission_reversal_minor), sellerReversalMinor: moneyValue(item.seller_reversal_minor), stockDisposition: item.stock_disposition })), refund: refunds[0] ? refundObject(refunds[0]) : null, createdAt: row.created_at.toISOString(), updatedAt: row.updated_at.toISOString() };
   }
 
   private async refundView(refundId: string): Promise<object> {
@@ -596,6 +673,15 @@ function allowedSellerTransitions(row: SellerOrderRow): SuborderStatus[] {
   if (row.status === 'pending') return ['processing'];
   if (row.status === 'processing') return row.delivery_method === 'delivery' ? ['shipped'] : ['ready_for_pickup'];
   return [];
+}
+
+function allowedAdminTransitions(row: SellerOrderRow): SuborderStatus[] {
+  if (!['paid', 'awaiting_collection', 'processing', 'shipped'].includes(row.order_status)) return [];
+  return (adminTransitions[row.status] ?? []).filter((status) =>
+    !(row.payment_method === 'paystack' && status === 'cancelled') &&
+    !(row.delivery_method === 'delivery' && ['ready_for_pickup', 'picked_up'].includes(status)) &&
+    !(row.delivery_method === 'pickup' && ['shipped', 'delivered'].includes(status))
+  );
 }
 
 function sellerDelivery(method: 'delivery' | 'pickup', snapshotValue: string | object | null): object {

@@ -18,7 +18,10 @@ const sellerListSchema = z.object({
   deliveryMethod: z.enum(['delivery', 'pickup']).optional()
 }).strict();
 const sellerTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup']), expectedVersion: z.number().int().min(1).safe(), reason: reason.optional() }).strict();
-const adminTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup', 'delivered', 'picked_up', 'cancelled']), reason: reason.optional() }).strict();
+const adminTransitionSchema = z.object({ status: z.enum(['processing', 'shipped', 'ready_for_pickup', 'delivered', 'picked_up', 'cancelled']), expectedVersion: z.number().int().min(1).safe(), reason: reason.optional() }).strict();
+const deliveryAssignmentSchema = z.object({ courierName: z.string().trim().min(2).max(120), courierReference: z.string().trim().min(2).max(120), expectedVersion: z.number().int().min(1).safe() }).strict();
+const adminOrderListSchema = z.object({ page: z.coerce.number().int().min(1).max(100_000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), status: z.enum(['awaiting_payment', 'awaiting_collection', 'paid', 'payment_failed', 'reservation_expired', 'cancelled', 'processing', 'shipped', 'delivered', 'returned', 'refunded']).optional(), paymentMethod: z.enum(['paystack', 'cod']).optional() }).strict();
+const adminReturnListSchema = z.object({ page: z.coerce.number().int().min(1).max(100_000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), status: z.enum(['requested', 'rejected', 'approved', 'refund_pending', 'refund_failed', 'refunded']).optional(), orderId: z.uuid().optional() }).strict();
 const cancelSchema = z.object({ reason }).strict();
 const returnSchema = z.object({ items: z.array(z.object({ orderItemId: z.uuid(), quantity: z.number().int().min(1).max(20) }).strict()).min(1).max(50), reason }).strict();
 const reviewSchema = z.discriminatedUnion('action', [
@@ -66,9 +69,25 @@ export function createFulfilmentRouter(pool: Pool, fulfilment: FulfilmentService
     res.json({ success: true, data: { sellerOrder }, meta: { requestId: req.id } });
   }));
 
+  router.get('/admin/orders', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    const result = await fulfilment.listAdminOrders(adminOrderListSchema.parse(req.query));
+    res.json({ success: true, data: { orders: result.orders }, meta: { requestId: req.id, pagination: result.pagination } });
+  }));
+  router.get('/admin/orders/:orderId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { order: await fulfilment.getAdminOrder(z.uuid().parse(req.params.orderId)) }, meta: { requestId: req.id } });
+  }));
+  router.get('/admin/orders/:orderId/suborders/:suborderId/delivery-assignment', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    const assignment = await fulfilment.getDeliveryAssignment(z.uuid().parse(req.params.orderId), z.uuid().parse(req.params.suborderId));
+    res.json({ success: true, data: { assignment }, meta: { requestId: req.id } });
+  }));
+  router.put('/admin/orders/:orderId/suborders/:suborderId/delivery-assignment', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    const body = deliveryAssignmentSchema.parse(req.body);
+    const result = await fulfilment.assignDelivery(req.authUser!.id, z.uuid().parse(req.params.orderId), z.uuid().parse(req.params.suborderId), body.courierName, body.courierReference, body.expectedVersion);
+    res.json({ success: true, data: result, meta: { requestId: req.id } });
+  }));
   router.patch('/admin/orders/:orderId/suborders/:suborderId/status', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
     const body = adminTransitionSchema.parse(req.body);
-    const progress = await fulfilment.transitionAdmin(req.authUser!.id, z.uuid().parse(req.params.orderId), z.uuid().parse(req.params.suborderId), body.status as SuborderStatus, body.reason);
+    const progress = await fulfilment.transitionAdmin(req.authUser!.id, z.uuid().parse(req.params.orderId), z.uuid().parse(req.params.suborderId), body.status as SuborderStatus, body.expectedVersion, body.reason);
     res.json({ success: true, data: { fulfilment: progress }, meta: { requestId: req.id } });
   }));
 
@@ -97,6 +116,13 @@ export function createFulfilmentRouter(pool: Pool, fulfilment: FulfilmentService
     res.json({ success: true, data: { returns: await fulfilment.listReturns(await access(req), orderId) }, meta: { requestId: req.id } });
   }));
 
+  router.get('/admin/returns', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    const result = await fulfilment.listAdminReturns(adminReturnListSchema.parse(req.query));
+    res.json({ success: true, data: { returns: result.returns }, meta: { requestId: req.id, pagination: result.pagination } });
+  }));
+  router.get('/admin/returns/:returnRequestId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { returnRequest: await fulfilment.getAdminReturn(z.uuid().parse(req.params.returnRequestId)) }, meta: { requestId: req.id } });
+  }));
   router.patch('/admin/returns/:returnRequestId', authenticated, requireRole('admin'), providerCalls, asyncRoute(async (req, res) => {
     const body = reviewSchema.parse(req.body);
     const result = await fulfilment.reviewReturn(req.authUser!.id, z.uuid().parse(req.params.returnRequestId), body.action, body.adminNote, body.action === 'approve' ? body.stockDisposition : undefined);

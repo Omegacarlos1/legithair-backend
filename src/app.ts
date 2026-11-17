@@ -4,6 +4,7 @@ import { pinoHttp } from 'pino-http';
 import type { Logger } from 'pino';
 import type { Pool } from 'mysql2/promise';
 import { AppError } from './http/errors.js';
+import { PaymentProviderError } from './payments/provider.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSellerRouter } from './sellers/router.js';
 import { createCatalogRouter } from './catalog/router.js';
@@ -11,6 +12,7 @@ import { createBasketRouter } from './baskets/router.js';
 import { createOrderRouter } from './orders/router.js';
 import type { OrderPolicy } from './orders/types.js';
 import { createPaymentRouter } from './payments/router.js';
+import { createFinanceReadRouter } from './finance/router.js';
 import { UnconfiguredPaymentProvider, type PaymentProvider } from './payments/provider.js';
 import { createFulfilmentRouter } from './fulfilment/router.js';
 import { FulfilmentService } from './fulfilment/service.js';
@@ -71,6 +73,7 @@ export function createApp({ pool, logger, readinessTimeoutMs, nodeEnv = 'test', 
   const fulfilment = new FulfilmentService(pool, refundProvider, fulfilmentPolicy);
   const payouts = new EarningsPayoutService(pool, transferProvider, earningsPolicy);
   app.use('/api/v1', createPaymentRouter(pool, paymentProvider, paystackWebhookSecret, paystackCallbackUrl, (event, rawBody) => fulfilment.handleRefundWebhook(event, rawBody), (event, rawBody) => payouts.handleWebhook(event, rawBody)));
+  app.use('/api/v1', createFinanceReadRouter(pool));
   app.use('/api/v1', createFulfilmentRouter(pool, fulfilment));
   app.use('/api/v1', createPayoutRouter(pool, payouts));
   app.use('/api/v1', createReviewRouter(pool));
@@ -86,7 +89,10 @@ export function createApp({ pool, logger, readinessTimeoutMs, nodeEnv = 'test', 
     const bodyFailure = requestBodyFailure(error);
     const status = validation ? 400 : known ? error.status : bodyFailure?.status ?? 500;
     const code = validation ? 'VALIDATION_ERROR' : known ? error.code : bodyFailure?.code ?? 'INTERNAL_ERROR';
-    if (status >= 500) req.log.error({ err: error }, 'Request failed');
+    if (status >= 500) {
+      const providerError = error instanceof AppError && error.cause instanceof PaymentProviderError ? error.cause : undefined;
+      req.log.error({ err: error, ...(providerError ? { providerCode: providerError.code, providerHttpStatus: providerError.httpStatus, providerReason: providerError.message } : {}) }, 'Request failed');
+    }
     else req.log.warn({ status, code }, 'Request rejected');
     res.status(status).json({
       success: false,

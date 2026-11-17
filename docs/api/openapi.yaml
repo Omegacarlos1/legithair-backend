@@ -102,6 +102,18 @@ paths:
       parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerStatusDecision' } } } }
       responses: { '200': { description: Status updated or already current }, '400': { description: Invalid input }, '403': { description: Admin role required or self-decision forbidden }, '404': { description: Seller not found }, '409': { description: Verified identity required for approval } }
+  /api/v1/admin/sellers:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated admin seller list
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: approvalStatus, in: query, schema: { type: string, enum: [pending, approved, suspended] } }, { name: identityStatus, in: query, schema: { type: string, enum: [not_started, pending, verified, failed, manual_review] } }]
+      responses: { '200': { description: Sellers in data.sellers and pagination in meta.pagination }, '400': { description: Invalid filter }, '401': { description: Authentication required }, '403': { description: Admin role required } }
+  /api/v1/admin/sellers/{sellerId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Admin seller detail
+      parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Seller in data.seller }, '401': { description: Authentication required }, '403': { description: Admin role required }, '404': { description: Seller not found } }
   /api/v1/categories:
     get:
       summary: List active catalogue categories
@@ -280,6 +292,11 @@ paths:
       summary: List active Lagos delivery zones and pickup locations
       responses: { '200': { description: Active options with NGN minor-unit fees and estimates } }
   /api/v1/admin/delivery-zones/{zoneId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read one active or inactive delivery zone
+      parameters: [{ name: zoneId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Zone in data.zone }, '403': { description: Admin role required }, '404': { description: Zone not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Update an admin-managed Lagos delivery zone
@@ -287,18 +304,31 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDeliveryZone' } } } }
       responses: { '200': { description: Zone updated }, '403': { description: Admin role required }, '404': { description: Zone not found } }
   /api/v1/admin/delivery-zones:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all delivery zones including inactive records
+      responses: { '200': { description: Zones in data.zones }, '403': { description: Admin role required } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create an admin-managed Lagos delivery zone
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDeliveryZone' } } } }
       responses: { '201': { description: Zone created }, '403': { description: Admin role required }, '409': { description: Zone code already exists } }
   /api/v1/admin/pickup-locations:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all pickup locations including inactive records
+      responses: { '200': { description: Locations in data.pickupLocations }, '403': { description: Admin role required } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create an admin-managed Lagos pickup location
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePickupLocation' } } } }
       responses: { '201': { description: Pickup location created }, '400': { description: Invalid or non-Lagos location }, '403': { description: Admin role required } }
   /api/v1/admin/pickup-locations/{pickupLocationId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read one active or inactive pickup location
+      parameters: [{ name: pickupLocationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Location in data.pickupLocation }, '403': { description: Admin role required }, '404': { description: Location not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Update or deactivate an admin-managed pickup location
@@ -416,13 +446,37 @@ paths:
         '403': { description: Seller role and profile required }
         '404': { description: No portion owned by this seller }
         '409': { description: 'Stale version, invalid transition, non-fulfillable order, or delivery-method mismatch' }
+  /api/v1/admin/orders/{orderId}/suborders/{suborderId}/delivery-assignment:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the current external courier assignment for a delivery portion
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Assignment or null in data.assignment }, '403': { description: Admin role required }, '404': { description: Order or portion not found }, '409': { description: Pickup portion } }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Assign or reassign an external courier while a delivery portion is processing or shipped
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [courierName, courierReference, expectedVersion], properties: { courierName: { type: string, minLength: 2, maxLength: 120 }, courierReference: { type: string, minLength: 2, maxLength: 120 }, expectedVersion: { type: integer, minimum: 1 } } } } } }
+      responses: { '200': { description: Assignment in data.assignment and updated suborder version in data.version }, '403': { description: Admin role required }, '404': { description: Order or portion not found }, '409': { description: Stale version or portion not processing or shipped for delivery } }
   /api/v1/admin/orders/{orderId}/suborders/{suborderId}/status:
     patch:
       security: [{ bearerAuth: [] }]
       summary: Record authorised delivery, pickup, or eligible COD cancellation progress
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
-      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: 'Invalid jump, delivery-method mismatch, or paid cancellation requiring refund' } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status, expectedVersion], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: 'Stale version, invalid jump, delivery-method mismatch, or paid cancellation requiring refund' } }
+  /api/v1/admin/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated admin order list
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: status, in: query, schema: { type: string } }, { name: paymentMethod, in: query, schema: { type: string, enum: [paystack, cod] } }]
+      responses: { '200': { description: Orders in data.orders and pagination in meta.pagination }, '400': { description: Invalid filter }, '401': { description: Authentication required }, '403': { description: Admin role required } }
+  /api/v1/admin/orders/{orderId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Admin order detail with redacted delivery and versioned seller portions
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Order in data.order }, '401': { description: Authentication required }, '403': { description: Admin role required }, '404': { description: Order not found } }
   /api/v1/orders/{orderId}/fulfilment:
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
@@ -448,7 +502,18 @@ paths:
       summary: List return and refund outcomes for the owned order
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Return requests and refund states, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnListResponse' } } } }, '404': { description: Order absent or inaccessible } }
+  /api/v1/admin/returns:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List return requests for admin review, newest first
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: status, in: query, schema: { type: string, enum: [requested, approved, rejected, refund_pending, refund_failed, refunded] } }, { name: orderId, in: query, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Return summaries in data.returns and meta.pagination }, '403': { description: Admin role required } }
   /api/v1/admin/returns/{returnRequestId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read authoritative return items and refund state before review
+      parameters: [{ name: returnRequestId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Full return in data.returnRequest }, '403': { description: Admin role required }, '404': { description: Return request not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Reject a return or approve its exact bounded Paystack refund
@@ -565,6 +630,30 @@ paths:
       parameters: [{ in: path, name: bannerId, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateBanner' } } } }
       responses: { '200': { description: Banner updated }, '400': { description: Invalid URL or time window }, '403': { description: Admin role required }, '404': { description: Banner not found } }
+  /api/v1/admin/payments:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated redacted Paystack payment status reads for admin or finance
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: status, schema: { type: string, enum: [initialization_pending, pending, succeeded, mismatch, late_success, failed] } }, { in: query, name: orderId, schema: { type: string, format: uuid } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Payments in data.payments and meta.pagination; amounts are decimal-string NGN minor units }, '400': { description: Invalid filters }, '403': { description: Admin or finance role required } }
+  /api/v1/admin/payments/{paymentId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read payment status and review-case outcomes without customer identity values
+      parameters: [{ in: path, name: paymentId, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Payment in data.payment }, '403': { description: Admin or finance role required }, '404': { description: Payment not found } }
+  /api/v1/admin/transactions:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated persisted payment-ledger credits and refund debits
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: direction, schema: { type: string, enum: [credit, debit] } }, { in: query, name: paymentId, schema: { type: string, format: uuid } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Ledger entries in data.transactions and meta.pagination; amounts are decimal strings }, '403': { description: Admin or finance role required } }
+  /api/v1/admin/payment-review-cases:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated payment reconciliation exceptions
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: status, schema: { type: string, enum: [open, refund_pending, resolved] } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Cases in data.reviewCases and meta.pagination }, '403': { description: Admin or finance role required } }
   /api/v1/admin/reports/{report}:
     get:
       security: [{ bearerAuth: [] }]

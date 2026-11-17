@@ -88,6 +88,8 @@ The header-based M03 frontend may keep the raw guest credential in same-origin `
 | `POST /api/v1/baskets/refresh` | Customer or guest | Accept current prices after availability checks |
 | `POST /api/v1/baskets/merge` | Customer plus guest header | Merge the guest basket exactly once |
 | `GET /api/v1/delivery-options` | Public | List active Lagos zones and real/test pickup locations |
+| `GET /api/v1/admin/delivery-zones` and `GET /api/v1/admin/delivery-zones/:zoneId` | Admin | List/read active and inactive zones; responses use `data.zones` or `data.zone` |
+| `GET /api/v1/admin/pickup-locations` and `GET /api/v1/admin/pickup-locations/:pickupLocationId` | Admin | List/read active and inactive locations; responses use `data.pickupLocations` or `data.pickupLocation` |
 | `POST /api/v1/admin/delivery-zones` | Admin | Create a Lagos delivery zone |
 | `PATCH /api/v1/admin/delivery-zones/:zoneId` | Admin | Change coverage, fee, estimate or active state |
 | `POST /api/v1/admin/pickup-locations` | Admin | Create a real Lagos pickup location |
