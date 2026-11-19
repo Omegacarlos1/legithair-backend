@@ -14,6 +14,7 @@ const approvalSchema = z.object({
   reason: z.string().trim().min(3).max(500)
 }).strict();
 const emptySchema = z.object({}).strict();
+const adminListSchema = z.object({ page: z.coerce.number().int().min(1).max(100_000).default(1), limit: z.coerce.number().int().min(1).max(100).default(20), approvalStatus: z.enum(['pending', 'approved', 'suspended']).optional(), identityStatus: z.enum(['not_started', 'pending', 'verified', 'failed', 'manual_review']).optional() }).strict();
 const asyncRoute = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(next); };
 
 export function createSellerRouter(pool: Pool): Router {
@@ -33,6 +34,13 @@ export function createSellerRouter(pool: Pool): Router {
     emptySchema.parse(req.body);
     await sellers.requestIdentityVerification(req.authUser!.id);
     res.status(202).json({ success: true, data: { status: 'pending' }, meta: { requestId: req.id } });
+  }));
+  router.get('/admin/sellers', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    const result = await sellers.listAdmin(adminListSchema.parse(req.query));
+    res.json({ success: true, data: { sellers: result.sellers }, meta: { requestId: req.id, pagination: result.pagination } });
+  }));
+  router.get('/admin/sellers/:sellerId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { seller: await sellers.getAdmin(z.uuid().parse(req.params.sellerId)) }, meta: { requestId: req.id } });
   }));
   router.patch('/admin/sellers/:sellerId/status', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
     const sellerId = z.uuid().parse(req.params.sellerId);

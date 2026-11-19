@@ -13,10 +13,48 @@ All routes are under `/api/v1`. JSON responses use the documented API envelope e
 | `POST /auth/forgot-password` | Public, rate limited | Queue an enumeration-safe reset message. |
 | `POST /auth/reset-password` | Public, rate limited | Consume the one-hour token, update password, revoke sessions. |
 | `GET /me` | Bearer access token | Return the current account and roles. |
-| `GET/POST /me/addresses` | Bearer access token | List or create only the current account’s addresses. |
+| `GET /me/addresses` | Bearer access token | List only the current account’s saved addresses, default first. |
+| `POST /me/addresses` | Bearer access token | Create an address owned by the current account. |
+| `PATCH /me/addresses/:addressId` | Bearer access token | Update fields on an address owned by the current account. |
+| `PUT /me/addresses/:addressId/default` | Bearer access token | Select one owned address as the account default. |
 | `GET /users/:userId/addresses` | Owner or admin | Explicit ownership/role enforcement demonstration. |
 
 Registration requires `email`, `displayName`, and a 12–128 character password containing lowercase, uppercase, and a digit. Address creation requires `label`, `recipientName`, `phone`, `line1`, `city`, and `state`; `countryCode` defaults to `NG`.
+
+## Saved customer addresses
+
+All self-service address routes derive ownership from the bearer access token. The client never supplies a user ID. Cross-customer and unknown address identifiers return `404 ADDRESS_NOT_FOUND` on mutation so the API does not expose whether another customer owns the identifier.
+
+Create an address:
+
+```http
+POST /api/v1/me/addresses
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "label": "Home",
+  "recipientName": "Customer Name",
+  "phone": "+2348000000000",
+  "line1": "10 Example Street",
+  "city": "Ikeja",
+  "state": "Lagos",
+  "countryCode": "NG",
+  "isDefault": true
+}
+```
+
+`GET /api/v1/me/addresses` returns `{ "addresses": [...] }`, ordered with the selected default first. Update one or more editable fields with `PATCH /api/v1/me/addresses/:addressId`; send `line2: null` to clear the optional second line. Default selection is a separate atomic operation:
+
+```http
+PUT /api/v1/me/addresses/80000000-0000-4000-8000-000000000005/default
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{}
+```
+
+Selecting a default clears the prior default for that customer in the same transaction. At checkout, submit the selected saved address ID as `addressId` only for a delivery quote; pickup quotes use `pickupLocationId` instead.
 
 Raw access/refresh tokens are returned only at login/rotation. Send access tokens as `Authorization: Bearer <token>`. The database stores SHA-256 hashes. Never log or commit tokens.
 

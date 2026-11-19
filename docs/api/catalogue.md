@@ -22,6 +22,7 @@ Admins can create and deactivate categories, edit any product, change publicatio
 | `GET /seller/products` | Approved seller | Own products, including drafts and unpublished products. |
 | `POST /seller/products` | Approved seller | Create an owned draft product. |
 | `PATCH /seller/products/:productId` | Approved owner | Edit product metadata. |
+| `DELETE /seller/products/:productId` | Approved owner | Archive an owned product; returns `204` with no body. Repeating the request is safe. |
 | `POST /seller/products/:productId/images` | Approved owner | Upload one image using multipart field `image`. |
 | `PATCH /seller/products/:productId/publication` | Approved owner | Publish or unpublish; publication requires a validated image. |
 | `PATCH /seller/products/:productId/stock` | Approved owner | Apply an idempotent stock delta. |
@@ -54,6 +55,10 @@ GET /api/v1/products?page=1&limit=20&brand=Legit%20Synthetic&colour=Black&size=M
   "initialStock": 5
 }
 ```
+
+## Seller product deletion
+
+Seller deletion uses `DELETE /api/v1/seller/products/:productId` with the seller bearer token and no request body. It returns `204` without a response body, including on a repeated request. The product disappears from the seller and public lists, can no longer be edited, republished, restocked, or have images uploaded, and its public images stop serving. Historical orders and audit records retain their product references and price snapshots. The product row and stored image bytes remain for history and retention handling.
 
 ## Stock adjustment
 

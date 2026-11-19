@@ -8,6 +8,10 @@ All routes are under `/api/v1` and use the standard JSON envelope.
 | `GET /sellers/me` | Bearer user | Read only the current account's seller profile. |
 | `POST /sellers/me/verification` | Bearer seller | Returns `503 IDENTITY_PROVIDER_NOT_CONFIGURED` while Dojah and consent are deferred; suspended sellers receive `403`. |
 | `PATCH /admin/sellers/:sellerId/status` | Admin bearer user | Set `pending`, `approved`, or `suspended` with an audit reason. Self-decisions are forbidden. Approval requires `identityStatus=verified`. |
+| `GET /admin/sellers` | Admin bearer user | Paginated seller profiles. Optional `page`, `limit` (1–100), `approvalStatus`, and `identityStatus`. |
+| `GET /admin/sellers/:sellerId` | Admin bearer user | Seller profile or `404 SELLER_NOT_FOUND`. |
+
+Admin list returns `data.sellers` and `meta.pagination` (`page`, `limit`, `total`, `totalPages`); detail returns `data.seller`. Each seller has `id`, `userId`, `businessName`, `phone`, `identityStatus`, `approvalStatus`, `approvalReason`, `approvedBy`, `approvedAt`, `suspendedAt`, `createdAt`, and `updatedAt`. Only admins may read these fields. List ordering is newest first, with ID as the tie breaker. Invalid filters return `400`; missing authentication returns `401`; other roles receive `403`.
 
 Create a seller with:
 

@@ -125,6 +125,28 @@ export class BasketService {
     return { zones: zones.map(zoneView), pickupLocations: pickups.map(pickupView) };
   }
 
+  public async listAdminZones(): Promise<object[]> {
+    const [rows] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones ORDER BY name, id');
+    return rows.map(zoneView);
+  }
+
+  public async getAdminZone(zoneId: string): Promise<object> {
+    const [rows] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones WHERE id = ?', [zoneId]);
+    if (!rows[0]) throw new AppError(404, 'DELIVERY_ZONE_NOT_FOUND', 'Delivery zone not found');
+    return zoneView(rows[0]);
+  }
+
+  public async listAdminPickups(): Promise<object[]> {
+    const [rows] = await this.pool.query<PickupRow[]>('SELECT * FROM pickup_locations ORDER BY name, id');
+    return rows.map(pickupView);
+  }
+
+  public async getAdminPickup(pickupId: string): Promise<object> {
+    const [rows] = await this.pool.query<PickupRow[]>('SELECT * FROM pickup_locations WHERE id = ?', [pickupId]);
+    if (!rows[0]) throw new AppError(404, 'PICKUP_LOCATION_NOT_FOUND', 'Pickup location not found');
+    return pickupView(rows[0]);
+  }
+
   public async updateZone(actorUserId: string, zoneId: string, input: { name?: string; coverage?: string[]; feeMinor?: number; minBusinessDays?: number; maxBusinessDays?: number; isActive?: boolean }): Promise<object> {
     const [rows] = await this.pool.query<ZoneRow[]>('SELECT * FROM delivery_zones WHERE id = ?', [zoneId]);
     if (!rows[0]) throw new AppError(404, 'DELIVERY_ZONE_NOT_FOUND', 'Delivery zone not found');

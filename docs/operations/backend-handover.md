@@ -5,7 +5,7 @@
 - TypeScript/Express API and Socket.IO server, durable workers, migrations 001-014, guarded synthetic seed, and pinned dependency lockfile.
 - Versioned OpenAPI and focused API documentation under `docs/api/`.
 - Maintained Postman collection/environment plus isolated B12 performance collections.
-- Runnable provider-safe frontend verification under `legit-hair/frontend-handover`, plus dependency-ordered synthetic API coverage under `legit-hair/full-regression`; see [frontend Postman handover](frontend-postman-handover.md).
+- Runnable provider-safe frontend verification under `legit-hair/frontend-handover`, including a self-cleaning M03 basket workflow and a rerunnable M04 saved-address/pickup-quote workflow that removes its temporary basket line, plus dependency-ordered synthetic API coverage under `legit-hair/full-regression`; see [frontend Postman handover](frontend-postman-handover.md).
 - Architecture/policy records under `docs/decisions/` and milestone evidence under `docs/milestones/`.
 - Release, monitoring, backup/restore, and incident guidance in `docs/operations/`.
 

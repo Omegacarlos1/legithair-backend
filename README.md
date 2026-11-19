@@ -87,7 +87,7 @@ Local setup may leave `PAYSTACK_SECRET_KEY` blank; payment routes then fail clos
 
 ## B08 fulfilment, returns, refunds, and COD collection
 
-Seller fulfilment uses `PATCH /api/v1/seller/orders/:orderId/status`; seller identity comes from the authenticated account, so a seller cannot select another seller's portion. Admin completion uses `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status`. Delivery and pickup have separate transition paths, and the owned fulfilment view returns the immutable Lagos estimate/pickup snapshot.
+Seller order workspaces use `GET /api/v1/seller/orders` and `GET /api/v1/seller/orders/:orderId`; both resolve seller identity from the authenticated account, redact customer delivery PII, and return immutable seller/item/financial snapshots plus allowed transitions. `PATCH /api/v1/seller/orders/:orderId/status` requires the last read numeric `expectedVersion`, so stale browser updates return `409 STALE_SELLER_ORDER_VERSION`. Admin completion uses `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status`. Delivery and pickup have separate transition paths, including seller `ready_for_pickup` and staff `picked_up` states.
 
 Customer cancellation releases eligible reservations once. Delivered customers and guests can submit bounded, idempotent item returns. `RETURN_WINDOW_DAYS` and `REFUND_DELIVERY_MODE` intentionally have no production defaults because the owner has not approved those policies. Refund approval therefore fails closed until explicit values are supplied. Local tests use a synthetic 14-day window and `full_order` delivery-fee treatment.
 

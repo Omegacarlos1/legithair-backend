@@ -1,0 +1,84 @@
+B12 M06 account and order frontend handover follow-up
+Date: 2026-11-10
+Status: LOCAL VERIFIED follow-up; B12 remains READY_FOR_REVIEW and is not owner-accepted.
+
+Scope verified
+- Added authenticated customer order history: GET /api/v1/orders?page=1&limit=20&status=<optional>.
+- History is scoped by authenticated customer before counting/pagination and returns immutable item summaries newest first.
+- Added chronological, typed order/suborder timeline entries to GET /api/v1/orders/:orderId/fulfilment for both the owning customer and guest tracking credential.
+- Confirmed existing guest tracking authorization, return item selection, and review pagination.
+- Added OpenAPI/focused examples for order history, guest fulfilment, return request/outcome records, review creation, and public review pagination.
+- Return evidence upload is deliberately not accepted until durable object storage, upload authorization, and retention are approved.
+- No migration, provider call, live credential, business-policy default, or money movement was added.
+
+Static and build commands
+1. npm run typecheck
+   PASS, exit 0.
+2. npm run lint
+   PASS, exit 0.
+3. npm run build
+   PASS, exit 0.
+
+Normal wrapper attempt
+npm run test:api -- --grep "order API access controls"
+Result: HOST BLOCKED before discovery by the established Windows uv_os_get_passwd/ENOMEM condition in tsx. No application assertion ran or failed in this attempt.
+
+Focused API command
+node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/api/orders.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+Result: PASS, 3 passing, 0 failing, 0 skipped.
+
+Focused MariaDB commands
+1. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/integration/orders.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   Result: PASS, 4 passing, including owner-scoped list/pagination/filter behavior and guest tracking.
+2. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/integration/fulfilment.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   Result: PASS, 7 passing, including chronological suborder timeline shape.
+
+Complete deterministic commands
+1. node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/unit/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   PASS: 25 passing.
+2. node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/api/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   PASS: 31 passing.
+3. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','dot','test/integration/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   PASS: 65 passing in 54 seconds.
+4. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); process.argv=['node','mocha','--require','tsx/cjs','--reporter','spec','test/socket/**/*.test.ts']; require('./node_modules/mocha/bin/mocha.js')"
+   PASS: 2 passing.
+Final deterministic total: 123 passing, 0 failing, 0 skipped.
+
+Contract and collection commands
+1. postman spec lint docs/api/openapi.yaml
+   First run: FAIL, one syntax issue caused by an unquoted comma in the new inline public-review response description.
+   Final run after correction: PASS, OpenAPI 3.1, no issues found. The CLI could not fetch cloud governance rules, which does not invalidate local syntax validation.
+2. node -e "JSON.parse(require('node:fs').readFileSync('postman/B12_Smoke.postman_collection.json','utf8')); console.log('smoke-json-ok')"
+   PASS.
+3. npm run postman:organize
+   PASS: maintained collection organized to 277 requests; M06 folder contains 17 requests.
+4. node -e "for (const p of ['postman/B12_Smoke.postman_collection.json','postman/Legit_Hair_Backend.postman_collection.json','postman/Local.postman_environment.json']) JSON.parse(require('node:fs').readFileSync(p,'utf8')); console.log('postman-json-ok')"
+   PASS.
+5. postman collection lint postman/Legit_Hair_Backend.postman_collection.json
+6. postman collection lint postman/B12_Smoke.postman_collection.json
+   Both exited 0 but scanned zero entities because the files are maintained Postman v2.1 exports, not git-native v3 collections. JSON parsing plus actual collection execution provide the meaningful evidence.
+7. postman status
+   NOT AVAILABLE: installed CLI returned "unknown command 'status'".
+
+Disposable database preparation
+1. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./src/database/migrate.ts').migrate('down').then(()=>require('./src/database/migrate.ts').migrate('up')).catch(error=>{console.error(error);process.exitCode=1})"
+   PASS: complete rollback/forward on the guarded _test schema.
+2. $env:NODE_ENV='test'; $env:DATABASE_NAME='legit_hair_app_test'; $env:EMAIL_PROVIDER='fake'; node -e "const os=require('node:os'); os.userInfo=()=>({uid:-1,gid:-1,username:'codex',homedir:process.cwd(),shell:null}); require('tsx/cjs'); require('./scripts/seed-test.ts').seedTestFixtures().catch(error=>{console.error(error);process.exitCode=1})"
+   PASS: guarded synthetic fixtures seeded.
+
+Provider-safe Postman execution
+The API ran locally on port 3106 with NODE_ENV=test, DATABASE_NAME=legit_hair_app_test, EMAIL_PROVIDER=fake, synthetic order policy values, COD enabled, and a synthetic guest-token secret. No Paystack/refund/payout provider request was made.
+
+1. postman collection run postman/B12_Smoke.postman_collection.json -e postman/Local.postman_environment.json --env-var baseUrl=http://127.0.0.1:3106 --no-report-events --timeout-request 5000
+   PASS, exit 0: 47 requests, 47 test scripts, 5 prerequest scripts, 76 assertions, zero failures. Duration 6.8 seconds; average 44 ms, minimum 8 ms, maximum 188 ms.
+2. postman collection run postman/Legit_Hair_Backend.postman_collection.json -e postman/Local.postman_environment.json -i frontend-handover --env-var baseUrl=http://127.0.0.1:3106 --no-report-events --timeout-request 5000
+   PASS, exit 0: 47 requests, 47 test scripts, 5 prerequest scripts, 76 assertions, zero failures. Duration 6.7 seconds; average 39 ms, minimum 9 ms, maximum 188 ms.
+
+Both runs reported an offline feature-flag AggregateError and then completed locally with exit 0. Runtime bearer, basket, and tracking credentials were not printed or persisted. M06 cancelled both synthetic orders, released their stock, cleared guest runtime variables, and restored the customer to opted-out marketing state.
+
+Open gates and limits
+- B12 owner acceptance, frontend implementation/Playwright proof, production MySQL, hosted capacity, and owner UAT remain open.
+- M05 Paystack provider/test-mode acceptance remains separate; this follow-up made no provider-readiness claim.
+- Return/refund policy values remain fail-closed pending owner approval.
+- Return evidence attachment upload remains blocked on durable object storage, authorization, content validation, retention, and deletion policy.
+- The existing full provider-simulation Postman regression was not rerun; unchanged historical evidence remains 110 requests/214 assertions plus the separate fake-email request. The changed M06 surface was exercised by focused MariaDB suites and the 47-request provider-safe handover.

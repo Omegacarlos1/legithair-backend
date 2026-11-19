@@ -22,6 +22,8 @@ The backend accepts only an owned `awaiting_payment` Paystack order with a live 
 
 Responses: `201` for a new attempt, `200` for the same persisted attempt, `400` when guest email is missing, `401` without access, `404` for inaccessible orders, `409` for a non-Paystack/non-payable/expired order or changed guest email, and `503` when Paystack is unconfigured or temporarily unavailable. A timeout leaves one recoverable `initialization_pending` row with the original reference.
 
+If initialization returns `502 PAYMENT_PROVIDER_ERROR`, find the matching `meta.requestId` in the backend log. The log includes `providerCode`, `providerHttpStatus`, and `providerReason` from Paystack. The public response intentionally does not include Paystack's raw message. After correcting the provider rejection, retry initialization for the same order; the backend reuses its persisted payment reference. A blank `PAYSTACK_CALLBACK_URL` is valid when the frontend verifies from the original checkout tab.
+
 ## Verify payment
 
 `POST /api/v1/payments/verify`

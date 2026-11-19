@@ -2,7 +2,26 @@
 
 ## Reviews
 
-`POST /api/v1/reviews` requires a customer bearer token, `Idempotency-Key`, and an `orderItemId`. The order item must belong to that customer, its seller suborder must be fulfilled, and its Paystack payment or COD collection must be settled. One customer can review a product once. New reviews are `pending` and therefore absent from `GET /api/v1/products/:productId/reviews` until an admin publishes them.
+`POST /api/v1/reviews` requires a customer bearer token, `Idempotency-Key`, and an `orderItemId`. The order item must belong to that customer, its seller suborder must be fulfilled, and its Paystack payment or COD collection must be settled. One customer can review a product once. The exact request is:
+
+```json
+{ "orderItemId": "91000000-0000-4000-8000-000000000001", "rating": 5, "title": "Excellent quality", "body": "The product matched its description." }
+```
+
+New reviews are `pending` and therefore absent from `GET /api/v1/products/:productId/reviews` until an admin publishes them. Creation returns `data.review` with `id`, `productId`, `orderItemId`, `userId`, `rating`, `title`, `body`, `status`, nullable moderation fields, and ISO timestamps, plus `data.idempotentReplay`. New requests return `201`; identical key/input replays return `200`; a changed replay or a second review returns `409`.
+
+`GET /api/v1/products/:productId/reviews?page=1&limit=20` is public. `page` defaults to `1`; `limit` defaults to `20` and is capped at `100`. It returns published review records, a rating summary, and pagination:
+
+```json
+{
+  "success": true,
+  "data": {
+    "reviews": [{ "id": "94000000-0000-4000-8000-000000000001", "rating": 5, "title": "Excellent quality", "body": "The product matched its description.", "authorName": "Customer Fixture", "createdAt": "2026-11-10T17:00:00.000Z", "updatedAt": "2026-11-10T17:05:00.000Z" }],
+    "summary": { "count": 1, "averageRating": 5 }
+  },
+  "meta": { "requestId": "request-id", "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 } }
+}
+```
 
 Admins list the moderation queue with `GET /api/v1/admin/reviews?status=pending` and publish or reject with `PATCH /api/v1/admin/reviews/:reviewId`. Every state change records the actor, reason, previous state, and new state. Rejected content is never returned by the public route.
 

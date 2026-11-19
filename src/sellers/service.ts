@@ -21,6 +21,24 @@ interface SellerRow extends RowDataPacket {
 export class SellerService {
   public constructor(private readonly pool: Pool) {}
 
+  public async listAdmin(query: { page: number; limit: number; approvalStatus?: SellerApprovalStatus; identityStatus?: SellerIdentityStatus }): Promise<{ sellers: SellerProfile[]; pagination: object }> {
+    const clauses: string[] = [];
+    const params: string[] = [];
+    if (query.approvalStatus) { clauses.push('approval_status = ?'); params.push(query.approvalStatus); }
+    if (query.identityStatus) { clauses.push('identity_status = ?'); params.push(query.identityStatus); }
+    const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
+    const [counts] = await this.pool.query<Array<RowDataPacket & { total: number | string }>>(`SELECT COUNT(*) AS total FROM sellers${where}`, params);
+    const [rows] = await this.pool.query<SellerRow[]>(`SELECT * FROM sellers${where} ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?`, [...params, query.limit, (query.page - 1) * query.limit]);
+    const total = Number(counts[0]!.total);
+    return { sellers: rows.map((row) => this.toProfile(row)), pagination: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
+  }
+
+  public async getAdmin(sellerId: string): Promise<SellerProfile> {
+    const [rows] = await this.pool.query<SellerRow[]>('SELECT * FROM sellers WHERE id = ?', [sellerId]);
+    if (!rows[0]) throw new AppError(404, 'SELLER_NOT_FOUND', 'Seller profile not found');
+    return this.toProfile(rows[0]);
+  }
+
   public async create(userId: string, input: { businessName: string; phone: string }): Promise<SellerProfile> {
     const sellerId = randomUUID();
     const connection = await this.pool.getConnection();

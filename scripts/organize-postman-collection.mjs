@@ -71,6 +71,10 @@ const subfolderOrder = {
   'frontend-handover': [
     'health-and-security',
     'customer',
+    'm03-baskets',
+    'm04-checkout',
+    'm06-orders-account',
+    'm09-seller-orders',
     'public-catalogue-and-delivery',
     'seller',
     'admin',
@@ -268,6 +272,28 @@ const rules = [
     route: ['frontend-handover', 'customer'],
     matches: (name) =>
       /^Handover - (Login customer fixture|Read current customer)$/.test(name),
+  },
+  {
+    route: ['frontend-handover', 'm03-baskets'],
+    matches: (name) =>
+      /^Handover - M03 (Create guest basket|Guest set item|Read guest basket|Remove guest item|Read empty guest basket|Customer set item|Read customer basket|Remove customer item|Read empty customer basket)$/.test(
+        name,
+      ),
+  },
+  {
+    route: ['frontend-handover', 'm04-checkout'],
+    matches: (name) =>
+      /^Handover - M04 (List saved addresses|Update saved address|Select default address|Customer set pickup item|Create pickup quote|Remove pickup item)$/.test(
+        name,
+      ),
+  },
+  {
+    route: ['frontend-handover', 'm06-orders-account'],
+    matches: (name) => /^Handover - M06 /.test(name),
+  },
+  {
+    route: ['frontend-handover', 'm09-seller-orders'],
+    matches: (name) => /^Handover - M09 /.test(name),
   },
   {
     route: ['frontend-handover', 'public-catalogue-and-delivery'],
@@ -509,7 +535,7 @@ source.info.description = [
   'Folders are organized by API domain. Request names retain their milestone labels for traceability.',
   'The full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.',
   'The manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.',
-  'The frontend-handover folder contains the provider-safe role-login smoke that frontend can rerun without persisting tokens.',
+  'The frontend-handover folder contains the provider-safe role-login smoke, M03 baskets, M04 saved-address/pickup quoting, M06 customer/guest order tracking, and M09 seller-order reads plus optimistic-concurrency transitions. Synthetic orders are cancelled to release stock and runtime guest credentials are cleared.',
   'Select the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.',
   'Provider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.',
 ].join('\n');
