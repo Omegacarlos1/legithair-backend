@@ -903,6 +903,16 @@
               ]
             },
             {
+              "name": "Seller archive product - manual run after product checks",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{sellerAccessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/seller/products/{{productId}}",
+                "description": "Run after product and order checks. Archives the seller-owned product without deleting order history. Run npm run seed:test to create synthetic approved seller credentials and IDs."
+              },
+              "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));", "pm.test('empty response', () => pm.expect(pm.response.text()).to.eql(''));" ] } }]
+            },
+            {
               "name": "B04 Upload product image - seller positive",
               "request": {
                 "method": "POST",

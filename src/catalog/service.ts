@@ -11,7 +11,7 @@ interface SellerAccessRow extends RowDataPacket { id: string; user_id: string; i
 interface ProductRow extends RowDataPacket {
   id: string; seller_id: string; category_id: string; name: string; slug: string; description: string; price_minor: number | string;
   brand: string | null; colour: string | null; size_label: string | null; publication_status: PublicationStatus;
-  stock_quantity: number; low_stock_threshold: number; paid_units_sold: number | string; published_at: Date | null;
+  stock_quantity: number; low_stock_threshold: number; paid_units_sold: number | string; published_at: Date | null; archived_at: Date | null;
   created_at: Date; updated_at: Date; category_name: string; category_slug: string; seller_name: string;
   primary_image_id: string | null; primary_image_mime: string | null; primary_image_size: number | null;
   primary_image_alt: string | null; primary_image_order: number | null;
@@ -96,13 +96,29 @@ export class CatalogService {
 
   public async listOwnProducts(actorUserId: string): Promise<ProductView[]> {
     const seller = await this.requireApprovedSeller(this.pool, actorUserId);
-    const [rows] = await this.pool.query<ProductRow[]>(`${PRODUCT_SELECT} WHERE p.seller_id = ? ORDER BY p.updated_at DESC, p.id ASC`, [seller.id]);
+    const [rows] = await this.pool.query<ProductRow[]>(`${PRODUCT_SELECT} WHERE p.seller_id = ? AND p.archived_at IS NULL ORDER BY p.updated_at DESC, p.id ASC`, [seller.id]);
     return rows.map((row) => this.productView(row, row.primary_image_id ? [primaryImage(row)] : []));
   }
 
   public async updateOwnProduct(actorUserId: string, productId: string, input: ProductUpdateInput): Promise<ProductView> {
     const seller = await this.requireApprovedSeller(this.pool, actorUserId);
     return this.updateProduct(actorUserId, productId, input, seller.id);
+  }
+
+  public async archiveOwnProduct(actorUserId: string, productId: string): Promise<void> {
+    const connection = await this.pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const seller = await this.requireApprovedSeller(connection, actorUserId, true);
+      const product = await this.findProduct(connection, productId, true);
+      if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
+      if (product.seller_id !== seller.id) throw new AppError(403, 'FORBIDDEN', 'You cannot delete another seller’s product');
+      if (!product.archived_at) {
+        await connection.query("UPDATE products SET archived_at = NOW(3), publication_status = 'unpublished' WHERE id = ?", [productId]);
+        await this.audit(connection, productId, actorUserId, 'product_archived', { previousStatus: product.publication_status });
+      }
+      await connection.commit();
+    } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
   }
 
   public async updateAnyProduct(actorUserId: string, productId: string, input: ProductUpdateInput): Promise<ProductView> {
@@ -132,6 +148,7 @@ export class CatalogService {
     const product = await this.findProduct(this.pool, productId);
     if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
     if (product.seller_id !== seller.id) throw new AppError(403, 'FORBIDDEN', 'You cannot change another seller’s product');
+    if (product.archived_at) throw new AppError(409, 'PRODUCT_ARCHIVED', 'Archived products cannot be changed');
     const stored = await this.imageStorage.save(productId, file.buffer, file.mimetype);
     const imageId = randomUUID();
     const connection = await this.pool.getConnection();
@@ -141,6 +158,7 @@ export class CatalogService {
       const currentProduct = await this.findProduct(connection, productId, true);
       if (!currentProduct) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
       if (currentProduct.seller_id !== currentSeller.id) throw new AppError(403, 'FORBIDDEN', 'You cannot change another seller’s product');
+      if (currentProduct.archived_at) throw new AppError(409, 'PRODUCT_ARCHIVED', 'Archived products cannot be changed');
       const [counts] = await connection.query<CountRow[]>('SELECT COUNT(*) AS count FROM product_images WHERE product_id = ?', [productId]);
       if (Number(counts[0]!.count) >= 10) throw new AppError(409, 'IMAGE_LIMIT_REACHED', 'A product can have at most 10 images');
       await connection.query('INSERT INTO product_images (id, product_id, storage_key, mime_type, size_bytes, alt_text, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)', [imageId, productId, stored.storageKey, stored.mimeType, stored.sizeBytes, altText.trim(), sortOrder]);
@@ -230,6 +248,7 @@ export class CatalogService {
       const locked = await this.findProduct(connection, productId, true);
       if (!locked) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
       if (requiredSellerId && locked.seller_id !== requiredSellerId) throw new AppError(403, 'FORBIDDEN', 'You cannot change another seller’s product');
+      if (locked.archived_at) throw new AppError(409, 'PRODUCT_ARCHIVED', 'Archived products cannot be changed');
       await connection.query(`UPDATE products SET ${sets.join(', ')} WHERE id = ?`, [...values, productId]);
       await this.audit(connection, productId, actorUserId, 'product_updated', { fields: Object.keys(input) });
       await connection.commit();
@@ -245,6 +264,7 @@ export class CatalogService {
       const product = await this.findProduct(connection, productId, true);
       if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
       if (requiredSellerId && product.seller_id !== requiredSellerId) throw new AppError(403, 'FORBIDDEN', 'You cannot change another seller’s product');
+      if (product.archived_at) throw new AppError(409, 'PRODUCT_ARCHIVED', 'Archived products cannot be changed');
       if (status === 'published') {
         await this.requireApprovedSellerById(connection, product.seller_id);
         await this.requireActiveCategory(connection, product.category_id);
@@ -268,6 +288,7 @@ export class CatalogService {
       const product = await this.findProduct(connection, productId, true);
       if (!product) throw new AppError(404, 'PRODUCT_NOT_FOUND', 'Product not found');
       if (requiredSellerId && product.seller_id !== requiredSellerId) throw new AppError(403, 'FORBIDDEN', 'You cannot change another seller’s stock');
+      if (product.archived_at) throw new AppError(409, 'PRODUCT_ARCHIVED', 'Archived products cannot be changed');
       const [existing] = await connection.query<AdjustmentRow[]>('SELECT id, delta, previous_quantity, new_quantity FROM stock_adjustments WHERE product_id = ? AND idempotency_key = ?', [productId, idempotencyKey]);
       if (existing[0]) {
         await connection.commit();

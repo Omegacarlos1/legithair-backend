@@ -193,6 +193,12 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateProduct' } } } }
       responses: { '201': { description: Draft product created }, '400': { description: Invalid input }, '403': { description: Verified and approved seller required }, '409': { description: Category unavailable } }
   /api/v1/seller/products/{productId}:
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Archive the seller's own product
+      description: Hides the product from seller and public lists, unpublishes it, and preserves images, audit records, stock history, and existing order references. Repeated deletion is safe.
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Product archived or already archived }, '401': { description: Authentication required }, '403': { description: Seller unavailable or product owned by another seller }, '404': { description: Product not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Edit the approved seller's own product metadata

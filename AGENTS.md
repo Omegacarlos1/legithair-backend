@@ -10,6 +10,7 @@ The existing PRD is the source of agreed product scope. Backend_Milestone_Plan.d
 
 CURRENT_MILESTONE: B12
 STATUS: READY_FOR_REVIEW
+The 2026-11-19 seller-product deletion follow-up adds archival DELETE, migration 018, and frontend contract documentation. Lint, typecheck, and build pass; Mocha remains blocked before execution by local Node/tsx `uv_os_get_passwd` ENOMEM. Migration, API, and Postman execution remain open. B12 remains READY_FOR_REVIEW.
 STARTED: 2026-10-30
 READY_FOR_REVIEW: 2026-10-30
 ACCEPTED:
