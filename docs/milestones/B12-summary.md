@@ -88,3 +88,7 @@ Added admin reads for inactive zones and pickup locations, paginated admin retur
 # 2026-11-17 M14 admin finance follow-up
 
 Added read-only admin/finance payment status list/detail, payment-ledger transaction list, and payment review-case list under src/finance. Added OpenAPI, docs/api/finance-reads.md, Postman M14 folder, and a redaction/decimal-string unit case. No migration or policy default changed. Rollback is code reversion; persisted financial data is untouched. Lint, typecheck, and build passed. Unit and API Mocha commands could not start because of local Node/tsx uv_os_get_passwd ENOMEM. The frontend M14 overview and report integration passed npm run check and a 2/2 synthetic desktop/mobile browser journey. Backend database/Postman execution, production MySQL, provider evidence, live-money authority, and backend acceptance remain open. The owner approved the bounded frontend M14 slice on 2026-11-17; B12 stays READY_FOR_REVIEW.
+
+## 2026-11-22 CI follow-up
+
+Corrected one integration-test filter in `test/integration/sellers.test.ts`: the fixture's seller is suspended before the admin list assertion. The prior GitHub run had 72 passing integration tests and one assertion failure. Lint and typecheck passed locally; focused Mocha execution was blocked before discovery by the known Windows Node/tsx ENOMEM condition. The CI rerun remains the verification gate. No schema, API, Postman, or business-policy change; rollback is code reversion. B12 remains READY_FOR_REVIEW.

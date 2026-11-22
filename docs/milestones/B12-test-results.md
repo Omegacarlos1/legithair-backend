@@ -113,3 +113,7 @@ Executed npm run lint (pass), npm run typecheck (pass), npm run build (pass), np
 # M15 follow-up, 2026-11-17
 
 `npm run lint`, `npm run typecheck`, and `npm run build` passed (3/3). `npm run test:unit`, `npm run test:api`, and `npm run test:integration` were blocked before test execution by local Node/tsx `uv_os_get_passwd` ENOMEM (0 tests executed). Migration and Postman checks were not run. See `evidence/B12/m15-followup.txt`; this is local static verification only.
+
+## 2026-11-22 CI seller-list assertion repair
+
+The 2026-11-19 pull-request CI integration run reached 72 passing tests and one failure at `test/integration/sellers.test.ts:108`: the test queried `approvalStatus=pending` after suspending the same seller. The test now queries `approvalStatus=suspended`, matching its fixture. Locally, `npm run lint` and `npm run typecheck` passed (2/2). `npm run test:integration -- --grep "restricts admin seller reads"` stopped before discovery with Node/tsx `uv_os_get_passwd` ENOMEM; zero local assertions executed. CI rerun is required to verify the fix. No migration, API contract, or Postman change was needed.

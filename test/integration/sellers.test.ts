@@ -104,7 +104,7 @@ describe('seller onboarding and approval against MariaDB', function () {
   it('restricts admin seller reads and paginates filtered results', async () => {
     await api.get('/api/v1/admin/sellers').expect(401);
     await api.get('/api/v1/admin/sellers').set('authorization', `Bearer ${ownerToken}`).expect(403);
-    const list = await api.get('/api/v1/admin/sellers?page=1&limit=10&approvalStatus=pending').set('authorization', `Bearer ${adminToken}`).expect(200);
+    const list = await api.get('/api/v1/admin/sellers?page=1&limit=10&approvalStatus=suspended').set('authorization', `Bearer ${adminToken}`).expect(200);
     assert.ok(list.body.data.sellers.some((seller: { id: string }) => seller.id === ownerSellerId));
     assert.ok(list.body.meta.pagination.total >= 1);
     const detail = await api.get(`/api/v1/admin/sellers/${ownerSellerId}`).set('authorization', `Bearer ${adminToken}`).expect(200);
