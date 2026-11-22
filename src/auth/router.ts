@@ -13,6 +13,7 @@ const loginSchema = z.object({ email: z.email(), password: z.string().min(1).max
 const tokenSchema = z.object({ token: z.string().min(32).max(200) }).strict();
 const resetSchema = z.object({ token: z.string().min(32).max(200), password }).strict();
 const addressSchema = z.object({ label: z.string().trim().min(1).max(50), recipientName: z.string().trim().min(2).max(100), phone: z.string().trim().min(7).max(30), line1: z.string().trim().min(3).max(200), line2: z.string().trim().max(200).optional(), city: z.string().trim().min(2).max(100), state: z.string().trim().min(2).max(100), countryCode: z.string().length(2).toUpperCase().default('NG'), isDefault: z.boolean().default(false) }).strict();
+const addressUpdateSchema = z.object({ label: z.string().trim().min(1).max(50).optional(), recipientName: z.string().trim().min(2).max(100).optional(), phone: z.string().trim().min(7).max(30).optional(), line1: z.string().trim().min(3).max(200).optional(), line2: z.string().trim().max(200).nullable().optional(), city: z.string().trim().min(2).max(100).optional(), state: z.string().trim().min(2).max(100).optional(), countryCode: z.string().length(2).toUpperCase().optional() }).strict().refine((value) => Object.keys(value).length > 0, 'At least one field is required');
 const asyncRoute = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(next); };
 
 export function createAuthRouter(pool: Pool): Router {
@@ -29,6 +30,8 @@ export function createAuthRouter(pool: Pool): Router {
   router.get('/me', required, (req, res) => res.json({ success: true, data: { user: req.authUser }, meta: { requestId: req.id } }));
   router.get('/me/addresses', required, asyncRoute(async (req, res) => { res.json({ success: true, data: { addresses: await addresses.list(req.authUser!.id) }, meta: { requestId: req.id } }); }));
   router.post('/me/addresses', required, asyncRoute(async (req, res) => { const result = await addresses.create(req.authUser!.id, addressSchema.parse(req.body)); res.status(201).json({ success: true, data: result, meta: { requestId: req.id } }); }));
+  router.patch('/me/addresses/:addressId', required, asyncRoute(async (req, res) => { const address = await addresses.update(req.authUser!.id, z.uuid().parse(req.params.addressId), addressUpdateSchema.parse(req.body)); res.json({ success: true, data: { address }, meta: { requestId: req.id } }); }));
+  router.put('/me/addresses/:addressId/default', required, asyncRoute(async (req, res) => { z.object({}).strict().parse(req.body); const address = await addresses.selectDefault(req.authUser!.id, z.uuid().parse(req.params.addressId)); res.json({ success: true, data: { address }, meta: { requestId: req.id } }); }));
   router.get('/users/:userId/addresses', required, asyncRoute(async (req, res) => { const userId = z.uuid().parse(req.params.userId); if (req.authUser!.id !== userId && !req.authUser!.roles.includes('admin')) throw new AppError(403, 'FORBIDDEN', 'You cannot access another customer’s addresses'); res.json({ success: true, data: { addresses: await addresses.list(userId) }, meta: { requestId: req.id } }); }));
   return router;
 }

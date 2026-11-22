@@ -145,6 +145,25 @@ describe('catalogue and stock against MariaDB', function () {
     assert.equal(own.body.data.products.some((product: { id: string }) => product.id === productId), true);
   });
 
+  it('archives an owned product without removing audit or image records', async () => {
+    const id = await createProduct(ownerToken, { name: 'Synthetic Delete Example' });
+    const archivedImageId = await uploadAndPublish(ownerToken, id);
+    await api.delete(`/api/v1/seller/products/${id}`).set('authorization', `Bearer ${otherToken}`).expect(403);
+    await api.delete(`/api/v1/seller/products/${id}`).expect(401);
+    await api.delete(`/api/v1/seller/products/${id}`).set('authorization', `Bearer ${ownerToken}`).expect(204);
+    await api.delete(`/api/v1/seller/products/${id}`).set('authorization', `Bearer ${ownerToken}`).expect(204);
+    const own = await api.get('/api/v1/seller/products').set('authorization', `Bearer ${ownerToken}`).expect(200);
+    assert.equal(own.body.data.products.some((product: { id: string }) => product.id === id), false);
+    await api.get(`/api/v1/products/${id}`).expect(404);
+    await api.get(`/api/v1/products/${id}/images/${archivedImageId}`).expect(404);
+    await api.patch(`/api/v1/seller/products/${id}`).set('authorization', `Bearer ${ownerToken}`).send({ priceMinor: 100 }).expect(409);
+    await api.patch(`/api/v1/seller/products/${id}/publication`).set('authorization', `Bearer ${ownerToken}`).send({ status: 'published' }).expect(409);
+    const [audit] = await pool.query<CountRow[]>('SELECT COUNT(*) AS count FROM product_audit_events WHERE product_id = ? AND action = ?', [id, 'product_archived']);
+    assert.equal(Number(audit[0]!.count), 1);
+    const [images] = await pool.query<CountRow[]>('SELECT COUNT(*) AS count FROM product_images WHERE product_id = ?', [id]);
+    assert.equal(Number(images[0]!.count), 1);
+  });
+
   it('serializes concurrent stock adjustments and safely replays an idempotency key', async () => {
     await api.patch(`/api/v1/seller/products/${productId}/stock`).set('authorization', `Bearer ${ownerToken}`).send({ delta: -1, reason: 'Missing key' }).expect(400);
     const attempts = await Promise.all([

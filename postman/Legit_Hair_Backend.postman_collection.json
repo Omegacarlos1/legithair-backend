@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "legit-hair",
-    "description": "Maintained Legit Hair backend samples for milestones B01-B12.\n\nFolders are organized by API domain. Request names retain their milestone labels for traceability.\nThe full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.\nThe manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.\nThe frontend-handover folder contains the provider-safe role-login smoke that frontend can rerun without persisting tokens.\nSelect the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.\nProvider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.",
+    "description": "Maintained Legit Hair backend samples for milestones B01-B12.\n\nFolders are organized by API domain. Request names retain their milestone labels for traceability.\nThe full-regression folder duplicates every maintained domain request in B01-B12 dependency order so logins and generated test values are available before use.\nThe manual-regression folder contains controlled checks that require MariaDB to be stopped or a token captured from the fake email job; it is intentionally excluded from the ordinary full-regression run.\nThe frontend-handover folder contains the provider-safe role-login smoke, M03 baskets, M04 saved-address/pickup quoting, M06 customer/guest order tracking, and M09 seller-order reads plus optimistic-concurrency transitions. Synthetic orders are cancelled to release stock and runtime guest credentials are cleared.\nSelect the Local environment and run `npm run seed:test` before workflows that require synthetic fixture IDs.\nProvider and money-movement requests require separate test-mode authorization; this collection does not authorize live money movement.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -903,6 +903,16 @@
               ]
             },
             {
+              "name": "Seller archive product - manual run after product checks",
+              "request": {
+                "method": "DELETE",
+                "header": [{ "key": "Authorization", "value": "Bearer {{sellerAccessToken}}" }],
+                "url": "{{baseUrl}}/api/v1/seller/products/{{productId}}",
+                "description": "Run after product and order checks. Archives the seller-owned product without deleting order history. Run npm run seed:test to create synthetic approved seller credentials and IDs."
+              },
+              "event": [{ "listen": "test", "script": { "exec": ["pm.test('status 204', () => pm.response.to.have.status(204));", "pm.test('empty response', () => pm.expect(pm.response.text()).to.eql(''));" ] } }]
+            },
+            {
               "name": "B04 Upload product image - seller positive",
               "request": {
                 "method": "POST",
@@ -1150,7 +1160,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Invalid jump test\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":1,\"reason\":\"Invalid jump test\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -1182,7 +1192,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing synthetic order\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing synthetic order\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -1192,7 +1202,7 @@
                   "script": {
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('only first seller advanced', () => { const s=pm.response.json().data.fulfilment.suborders; pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerOneSuborderId')).status).to.eql('processing'); pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerTwoSuborderId')).status).to.eql('pending'); });"
+                      "const order=pm.response.json().data.sellerOrder; pm.test('owned first seller portion advanced', () => { pm.expect(order.id).to.eql(pm.environment.get('b08SellerOneSuborderId')); pm.expect(order.status).to.eql('processing'); }); pm.collectionVariables.set('b08SellerOneVersion', order.version);"
                     ]
                   }
                 }
@@ -1214,7 +1224,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing second seller portion\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing second seller portion\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -1223,7 +1233,8 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('b08SellerTwoVersion', pm.response.json().data.sellerOrder.version);"
                     ]
                   }
                 }
@@ -1245,7 +1256,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08SellerOneVersion}},\"reason\":\"Handed to synthetic dispatcher\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -1276,7 +1287,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08SellerTwoVersion}},\"reason\":\"Handed to synthetic dispatcher\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -1286,7 +1297,7 @@
                   "script": {
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('aggregate shipped', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('shipped'));"
+                      "pm.test('aggregate shipped', () => pm.expect(pm.response.json().data.sellerOrder.orderStatus).to.eql('shipped'));"
                     ]
                   }
                 }
@@ -1308,7 +1319,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing COD order\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing COD order\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status"
               },
@@ -1317,7 +1328,8 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('b08CodSellerVersion', pm.response.json().data.sellerOrder.version);"
                     ]
                   }
                 }
@@ -1339,7 +1351,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"COD order dispatched\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08CodSellerVersion}},\"reason\":\"COD order dispatched\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status"
               },
@@ -1515,11 +1527,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerOneSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -1546,11 +1573,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerTwoSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -1578,11 +1620,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/suborders/{{b08CodSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5461,7 +5518,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Invalid jump test\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":1,\"reason\":\"Invalid jump test\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -5493,7 +5550,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing synthetic order\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing synthetic order\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -5503,7 +5560,7 @@
                   "script": {
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('only first seller advanced', () => { const s=pm.response.json().data.fulfilment.suborders; pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerOneSuborderId')).status).to.eql('processing'); pm.expect(s.find(x=>x.id===pm.environment.get('b08SellerTwoSuborderId')).status).to.eql('pending'); });"
+                      "const order=pm.response.json().data.sellerOrder; pm.test('owned first seller portion advanced', () => { pm.expect(order.id).to.eql(pm.environment.get('b08SellerOneSuborderId')); pm.expect(order.status).to.eql('processing'); }); pm.collectionVariables.set('b08SellerOneVersion', order.version);"
                     ]
                   }
                 }
@@ -5525,7 +5582,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing second seller portion\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing second seller portion\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -5534,7 +5591,8 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('b08SellerTwoVersion', pm.response.json().data.sellerOrder.version);"
                     ]
                   }
                 }
@@ -5556,7 +5614,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08SellerOneVersion}},\"reason\":\"Handed to synthetic dispatcher\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -5587,7 +5645,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"Handed to synthetic dispatcher\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08SellerTwoVersion}},\"reason\":\"Handed to synthetic dispatcher\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{orderId}}/status"
               },
@@ -5597,7 +5655,7 @@
                   "script": {
                     "exec": [
                       "pm.test('status 200', () => pm.response.to.have.status(200));",
-                      "pm.test('aggregate shipped', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('shipped'));"
+                      "pm.test('aggregate shipped', () => pm.expect(pm.response.json().data.sellerOrder.orderStatus).to.eql('shipped'));"
                     ]
                   }
                 }
@@ -5619,11 +5677,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerOneSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5650,11 +5723,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"Synthetic delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}/suborders/{{b08SellerTwoSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -5900,7 +5988,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"processing\",\"reason\":\"Preparing COD order\"}"
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":1,\"reason\":\"Preparing COD order\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status"
               },
@@ -5909,7 +5997,8 @@
                   "listen": "test",
                   "script": {
                     "exec": [
-                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                      "pm.test('status 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('b08CodSellerVersion', pm.response.json().data.sellerOrder.version);"
                     ]
                   }
                 }
@@ -5931,7 +6020,7 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"shipped\",\"reason\":\"COD order dispatched\"}"
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{b08CodSellerVersion}},\"reason\":\"COD order dispatched\"}"
                 },
                 "url": "{{baseUrl}}/api/v1/seller/orders/{{b06GuestOrderId}}/status"
               },
@@ -5962,11 +6051,26 @@
                 ],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\"}"
+                  "raw": "{\"status\":\"delivered\",\"reason\":\"COD delivery confirmed\",\"expectedVersion\":{{adminExpectedVersion}}}"
                 },
                 "url": "{{baseUrl}}/api/v1/admin/orders/{{b06GuestOrderId}}/suborders/{{b08CodSuborderId}}/status"
               },
               "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminAccessToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
                 {
                   "listen": "test",
                   "script": {
@@ -7345,6 +7449,1249 @@
           ]
         },
         {
+          "name": "m03-baskets",
+          "item": [
+            {
+              "name": "Handover - M03 Create guest basket",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/guest"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest basket 201', () => pm.response.to.have.status(201));",
+                      "const body = pm.response.json(); pm.test('opaque guest credential returned', () => pm.expect(body.data.guestBasketToken.length).to.be.above(31)); pm.collectionVariables.set('m03GuestBasketToken', body.data.guestBasketToken);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Guest set item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m03GuestBasketToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":2}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest item set 201', () => pm.response.to.have.status(201));",
+                      "pm.test('absolute quantity stored', () => pm.expect(pm.response.json().data.basket.items[0].quantity).to.eql(2));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Read guest basket",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m03GuestBasketToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/current"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest basket read 200', () => pm.response.to.have.status(200));",
+                      "const basket = pm.response.json().data.basket; pm.test('guest ownership and item restored', () => { pm.expect(basket.ownerType).to.eql('guest'); pm.expect(basket.items[0].productId).to.eql(pm.variables.get('b05ProductOneId')); pm.expect(basket.expiresAt).to.be.a('string'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Remove guest item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m03GuestBasketToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest item removed 204', () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Read empty guest basket",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m03GuestBasketToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/current"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('empty guest basket read 200', () => pm.response.to.have.status(200));",
+                      "pm.test('guest basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([])); pm.collectionVariables.unset('m03GuestBasketToken');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Customer set item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":2}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer item set 201', () => pm.response.to.have.status(201));",
+                      "pm.test('customer quantity stored', () => pm.expect(pm.response.json().data.basket.items.find(item => item.productId === pm.variables.get('b05ProductOneId')).quantity).to.eql(2));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Read customer basket",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/current"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer basket read 200', () => pm.response.to.have.status(200));",
+                      "const basket = pm.response.json().data.basket; pm.test('customer basket restored', () => { pm.expect(basket.ownerType).to.eql('customer'); pm.expect(basket.expiresAt).to.eql(null); pm.expect(basket.items.some(item => item.productId === pm.variables.get('b05ProductOneId'))).to.eql(true); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Remove customer item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer item removed 204', () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M03 Read empty customer basket",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/current"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('empty customer basket read 200', () => pm.response.to.have.status(200));",
+                      "pm.test('customer basket is empty', () => pm.expect(pm.response.json().data.basket.items).to.eql([]));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "m04-checkout",
+          "item": [
+            {
+              "name": "Handover - M04 List saved addresses",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me/addresses"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('saved addresses 200', () => pm.response.to.have.status(200));",
+                      "pm.test('seeded address is selectable', () => pm.expect(pm.response.json().data.addresses.map(address => address.id)).to.include(pm.variables.get('b05AddressId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Update saved address",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"label\":\"B05 Home\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('saved address updated 200', () => pm.response.to.have.status(200));",
+                      "pm.test('owned address returned', () => pm.expect(pm.response.json().data.address.id).to.eql(pm.variables.get('b05AddressId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Select default address",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/addresses/{{b05AddressId}}/default"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('default address selected 200', () => pm.response.to.have.status(200));",
+                      "pm.test('selected address is default', () => pm.expect(pm.response.json().data.address.isDefault).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Customer set pickup item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup item set 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Create pickup quote",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m04QuoteKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"deliveryMethod\":\"pickup\",\"pickupLocationId\":\"{{b05PickupId}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/checkout/quotes"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m04QuoteKey', 'm04-pickup-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup quote 201', () => pm.response.to.have.status(201));",
+                      "const quote = pm.response.json().data.quote; pm.test('pickup selection snapshotted', () => { pm.expect(quote.deliveryMethod).to.eql('pickup'); pm.expect(quote.destination.method).to.eql('pickup'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M04 Remove pickup item",
+              "request": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/baskets/items/{{b05ProductOneId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('pickup item removed 204', () => pm.response.to.have.status(204));",
+                      "pm.collectionVariables.unset('m04QuoteKey');"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "m06-orders-account",
+          "item": [
+            {
+              "name": "Handover - M06 Read marketing preference",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/me/marketing-preference"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('marketing preference 200', () => pm.response.to.have.status(200));",
+                      "pm.test('explicit preference state', () => pm.expect(pm.response.json().data.preference.optedIn).to.be.a('boolean'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Opt in to marketing",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"optedIn\":true}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/marketing-preference"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('marketing preference updated 200', () => pm.response.to.have.status(200));",
+                      "pm.test('customer opted in', () => pm.expect(pm.response.json().data.preference.optedIn).to.eql(true));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Customer set order item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('order item set 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Create customer delivery quote",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m06CustomerQuoteKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"addressId\":\"{{b05AddressId}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/checkout/quotes"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m06CustomerQuoteKey', 'm06-customer-quote-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer quote 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('m06CustomerQuoteId', pm.response.json().data.quote.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Create customer order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m06CustomerOrderKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"quoteId\":\"{{m06CustomerQuoteId}}\",\"paymentMethod\":\"paystack\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m06CustomerOrderKey', 'm06-customer-order-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer order 201', () => pm.response.to.have.status(201));",
+                      "const order=pm.response.json().data.order; pm.test('customer order awaits payment', () => pm.expect(order.status).to.eql('awaiting_payment')); pm.collectionVariables.set('m06CustomerOrderId', order.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 List customer orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/orders?page=1&limit=20",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer orders 200', () => pm.response.to.have.status(200));",
+                      "const body=pm.response.json(); pm.test('created order is in owner history', () => { const order=body.data.orders.find(item=>item.id===pm.variables.get('m06CustomerOrderId')); pm.expect(order).to.be.an('object'); pm.expect(order.items[0].productName).to.be.a('string'); pm.expect(body.meta.pagination.total).to.be.above(0); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Read customer order",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer order detail 200', () => pm.response.to.have.status(200));",
+                      "pm.test('owned order returned', () => pm.expect(pm.response.json().data.order.id).to.eql(pm.variables.get('m06CustomerOrderId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Read customer fulfilment timeline",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}/fulfilment"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer fulfilment 200', () => pm.response.to.have.status(200));",
+                      "const f=pm.response.json().data.fulfilment; pm.test('chronological timeline returned', () => { pm.expect(f.orderId).to.eql(pm.variables.get('m06CustomerOrderId')); pm.expect(f.timeline).to.be.an('array').that.is.not.empty; pm.expect(f.timeline[0]).to.have.keys('id','type','suborderId','fromStatus','toStatus','reason','createdAt'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Create guest tracking basket",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/guest"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest tracking basket 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('m06GuestBasketToken', pm.response.json().data.guestBasketToken);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Guest set order item",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m06GuestBasketToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"productId\":\"{{b05ProductOneId}}\",\"quantity\":1}"
+                },
+                "url": "{{baseUrl}}/api/v1/baskets/items"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest order item 201', () => pm.response.to.have.status(201));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Create guest delivery quote",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m06GuestBasketToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m06GuestQuoteKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"deliveryMethod\":\"delivery\",\"zoneId\":\"{{deliveryZoneId}}\",\"address\":{\"recipientName\":\"Synthetic Guest\",\"phone\":\"+2348000000000\",\"line1\":\"16 Synthetic Guest Street\",\"city\":\"Ikeja\",\"state\":\"Lagos\",\"countryCode\":\"NG\"}}"
+                },
+                "url": "{{baseUrl}}/api/v1/checkout/quotes"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m06GuestQuoteKey', 'm06-guest-quote-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest quote 201', () => pm.response.to.have.status(201));",
+                      "pm.collectionVariables.set('m06GuestQuoteId', pm.response.json().data.quote.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Create guest order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "X-Guest-Basket-Token",
+                    "value": "{{m06GuestBasketToken}}"
+                  },
+                  {
+                    "key": "Idempotency-Key",
+                    "value": "{{m06GuestOrderKey}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"quoteId\":\"{{m06GuestQuoteId}}\",\"paymentMethod\":\"cod\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "pm.collectionVariables.set('m06GuestOrderKey', 'm06-guest-order-' + pm.variables.replaceIn('{{$randomUUID}}'));"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest order 201', () => pm.response.to.have.status(201));",
+                      "const data=pm.response.json().data; pm.test('tracking credential returned once', () => pm.expect(data.guestTrackingToken.length).to.be.above(31)); pm.collectionVariables.set('m06GuestOrderId', data.order.id); pm.collectionVariables.set('m06GuestTrackingToken', data.guestTrackingToken);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Track guest order",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Order-Tracking-Token",
+                    "value": "{{m06GuestTrackingToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/orders/{{m06GuestOrderId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest order tracking 200', () => pm.response.to.have.status(200));",
+                      "pm.test('guest order returned', () => pm.expect(pm.response.json().data.order.id).to.eql(pm.variables.get('m06GuestOrderId')));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Read guest fulfilment timeline",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "X-Order-Tracking-Token",
+                    "value": "{{m06GuestTrackingToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/orders/{{m06GuestOrderId}}/fulfilment"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('guest fulfilment 200', () => pm.response.to.have.status(200));",
+                      "const f=pm.response.json().data.fulfilment; pm.test('guest timeline shape', () => { pm.expect(f.orderId).to.eql(pm.variables.get('m06GuestOrderId')); pm.expect(f.timeline[0].type).to.eql('order_status'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Cancel customer test order",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"reason\":\"Provider-safe M06 handover cleanup\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/orders/{{m06CustomerOrderId}}/cancel"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('customer test order cancelled 200', () => pm.response.to.have.status(200));",
+                      "pm.test('customer stock released', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('cancelled')); pm.collectionVariables.unset('m06CustomerQuoteKey'); pm.collectionVariables.unset('m06CustomerQuoteId'); pm.collectionVariables.unset('m06CustomerOrderKey'); pm.collectionVariables.unset('m06CustomerOrderId');"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M06 Restore marketing opt-out",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{customerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"optedIn\":false}"
+                },
+                "url": "{{baseUrl}}/api/v1/me/marketing-preference"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('marketing preference restored 200', () => pm.response.to.have.status(200));",
+                      "pm.test('customer opted out', () => pm.expect(pm.response.json().data.preference.optedIn).to.eql(false));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "m09-seller-orders",
+          "item": [
+            {
+              "name": "Handover - M09 Login seller fixture",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"seller.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('seller login 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('sellerToken', pm.response.json().data.tokens.accessToken);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 List seller orders",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{sellerToken}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/seller/orders?page=1&limit=20&status=pending&deliveryMethod=delivery",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "v1",
+                    "seller",
+                    "orders"
+                  ],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "20"
+                    },
+                    {
+                      "key": "status",
+                      "value": "pending"
+                    },
+                    {
+                      "key": "deliveryMethod",
+                      "value": "delivery"
+                    }
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('seller orders 200', () => pm.response.to.have.status(200));",
+                      "const body=pm.response.json(); const cod=body.data.orders.find(order=>order.orderId===pm.variables.get('m06GuestOrderId')); pm.test('owned actionable portion and pagination are explicit', () => { pm.expect(cod).to.be.an('object'); pm.expect(cod.allowedTransitions).to.eql(['processing']); pm.expect(body.meta.pagination.total).to.be.above(0); }); pm.collectionVariables.set('m09SellerOrderVersion', cod.version); pm.collectionVariables.set('m09SuborderId', cod.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Read seller order detail",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{sellerToken}}"
+                  }
+                ],
+                "url": "{{baseUrl}}/api/v1/seller/orders/{{m06GuestOrderId}}"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('seller order detail 200', () => pm.response.to.have.status(200));",
+                      "const order=pm.response.json().data.sellerOrder; pm.test('detail is owned, actionable, and customer PII is redacted', () => { pm.expect(order.orderId).to.eql(pm.variables.get('m06GuestOrderId')); pm.expect(order.items).to.have.length(1); pm.expect(order.version).to.eql(Number(pm.variables.get('m09SellerOrderVersion'))); const text=JSON.stringify(order.delivery); pm.expect(text).not.to.include('Synthetic Guest'); pm.expect(text).not.to.include('+2348000000000'); pm.expect(text).not.to.include('16 Synthetic Guest Street'); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Reject invalid seller transition",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{sellerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{m09SellerOrderVersion}},\"reason\":\"Representative invalid jump\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/seller/orders/{{m06GuestOrderId}}/status"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('invalid transition 409', () => pm.response.to.have.status(409));",
+                      "pm.test('exact transition code', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_FULFILMENT_TRANSITION'));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Start seller processing",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{sellerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"status\":\"processing\",\"expectedVersion\":{{m09SellerOrderVersion}},\"reason\":\"Preparing provider-safe handover order\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/seller/orders/{{m06GuestOrderId}}/status"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('seller transition 200', () => pm.response.to.have.status(200));",
+                      "const order=pm.response.json().data.sellerOrder; pm.test('version increments and next action is delivery dispatch', () => { pm.expect(order.status).to.eql('processing'); pm.expect(order.version).to.eql(Number(pm.variables.get('m09SellerOrderVersion'))+1); pm.expect(order.allowedTransitions).to.eql(['shipped']); }); pm.collectionVariables.set('m09SellerOrderCurrentVersion', order.version);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Reject stale seller update",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{sellerToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"status\":\"shipped\",\"expectedVersion\":{{m09SellerOrderVersion}},\"reason\":\"Stale browser dispatch attempt\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/seller/orders/{{m06GuestOrderId}}/status"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('stale update 409', () => pm.response.to.have.status(409));",
+                      "const error=pm.response.json().error; pm.test('stale conflict returns current version', () => { pm.expect(error.code).to.eql('STALE_SELLER_ORDER_VERSION'); pm.expect(error.details.currentVersion).to.eql(Number(pm.variables.get('m09SellerOrderCurrentVersion'))); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Login admin fixture",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"email\":\"admin.fixture@example.test\",\"password\":\"{{fixturePassword}}\"}"
+                },
+                "url": "{{baseUrl}}/api/v1/auth/login"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('admin login 200', () => pm.response.to.have.status(200));",
+                      "pm.collectionVariables.set('adminToken', pm.response.json().data.tokens.accessToken);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Handover - M09 Admin cleanup processed COD order",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{adminToken}}"
+                  },
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"status\":\"cancelled\",\"reason\":\"Provider-safe M09 handover cleanup\",\"expectedVersion\":{{adminExpectedVersion}}}"
+                },
+                "url": "{{baseUrl}}/api/v1/admin/orders/{{m06GuestOrderId}}/suborders/{{m09SuborderId}}/status"
+              },
+              "event": [
+                {
+                  "listen": "prerequest",
+                  "script": {
+                    "exec": [
+                      "const orderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/admin\\/orders\\/([^/]+)/)[1];",
+                      "const suborderId = pm.variables.replaceIn(pm.request.url.toString()).match(/\\/suborders\\/([^/]+)/)[1];",
+                      "pm.sendRequest({url: pm.environment.get('baseUrl') + '/api/v1/admin/orders/' + orderId, method: 'GET', header: {Authorization: pm.variables.replaceIn('Bearer {{adminToken}}')}}, (error, response) => {",
+                      "  if (error || response.code !== 200) throw new Error('Admin order detail required before status update');",
+                      "  const suborder = response.json().data.order.suborders.find((entry) => entry.id === suborderId);",
+                      "  if (!suborder) throw new Error('Suborder absent from admin detail');",
+                      "  pm.variables.set('adminExpectedVersion', suborder.version);",
+                      "});"
+                    ]
+                  }
+                },
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test('admin cleanup 200', () => pm.response.to.have.status(200));",
+                      "pm.test('processed COD stock released', () => pm.expect(pm.response.json().data.fulfilment.status).to.eql('cancelled')); ['m06GuestBasketToken','m06GuestQuoteKey','m06GuestQuoteId','m06GuestOrderKey','m06GuestOrderId','m06GuestTrackingToken','m09SellerOrderVersion','m09SellerOrderCurrentVersion','m09SuborderId'].forEach(key=>pm.collectionVariables.unset(key));"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
           "name": "public-catalogue-and-delivery",
           "item": [
             {
@@ -7678,6 +9025,602 @@
                   }
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M12 admin seller and order reads",
+      "item": [
+        {
+          "name": "M12 admin seller list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/sellers?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.sellers).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin seller detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/sellers/{{sellerId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.seller).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin order list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.orders).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "M12 admin order detail",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{orderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('admin read succeeds', () => pm.response.to.have.status(200));",
+                  "pm.test('admin response shape', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.order).to.exist; });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M13 admin delivery and returns",
+      "item": [
+        {
+          "name": "List all zones including inactive",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/delivery-zones"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.zones).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read zone",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/delivery-zones/{{deliveryZoneId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.zone.id).to.eql(pm.environment.get(\"deliveryZoneId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List all pickup locations including inactive",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/pickup-locations"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.pickupLocations).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read pickup location",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/pickup-locations/{{b05PickupId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.pickupLocation.id).to.eql(pm.environment.get(\"b05PickupId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List admin returns",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/returns?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.returns).to.be.an(\"array\"); pm.expect(b.meta.pagination).to.exist; if (b.data.returns.length) pm.environment.set(\"m13ReturnId\", b.data.returns[0].id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read selected return",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/returns/{{m13ReturnId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.returnRequest.id).to.eql(pm.environment.get(\"m13ReturnId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read delivery order for version",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); const s = b.data.order.suborders.find(x => x.id === pm.environment.get(\"m13SuborderId\")); pm.expect(s).to.exist; pm.environment.set(\"m13ExpectedVersion\", s.version); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assign external courier to shipped portion",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"courierName\": \"Synthetic Courier\", \"courierReference\": \"dispatch-fixture-001\", \"expectedVersion\": {{m13ExpectedVersion}} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.assignment.courierReference).to.eql(\"dispatch-fixture-001\"); pm.environment.set(\"m13CurrentVersion\", b.data.version); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read canonical assignment",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.assignment.courierReference).to.eql(\"dispatch-fixture-001\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject stale courier assignment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/orders/{{m13OrderId}}/suborders/{{m13SuborderId}}/delivery-assignment",
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"courierName\": \"Synthetic Courier\", \"courierReference\": \"dispatch-fixture-stale\", \"expectedVersion\": {{m13ExpectedVersion}} }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"stale update rejected\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"stale version code\", () => pm.expect(pm.response.json().error.code).to.eql(\"STALE_SELLER_ORDER_VERSION\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M14 finance reads",
+      "item": [
+        {
+          "name": "Paginated payment status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('payment list and pagination', () => { const b = pm.response.json(); pm.expect(b.data.payments).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; if (b.data.payments.length) pm.environment.set('m14PaymentId', b.data.payments[0].id); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment detail by selected ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments/{{m14PaymentId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('payment detail and review cases', () => { const b = pm.response.json(); pm.expect(b.data.payment.id).to.eql(pm.environment.get('m14PaymentId')); pm.expect(b.data.payment.reviewCases).to.be.an('array'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment ledger transactions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/transactions?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('finance response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.transactions).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment reconciliation cases",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payment-review-cases?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('finance response', () => { const b = pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.reviewCases).to.be.an('array'); pm.expect(b.meta.pagination).to.exist; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject seller finance access",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{sellerAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('forbidden', () => pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "M15 staff and audit",
+      "item": [
+        {
+          "name": "List staff",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff?page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.staff).to.be.an(\"array\"); pm.expect(b.meta.pagination.page).to.eql(1); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read staff account",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff/{{staffUserId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.staff.id).to.eql(pm.environment.get(\"staffUserId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Grant support",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/staff/{{staffUserId}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"support\",\n  \"action\": \"grant\",\n  \"reason\": \"Assigned to support queue\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.role).to.eql(\"support\"); pm.expect(b.data.assigned).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List staff role audit",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminAccessToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/audit-events?source=staff_role&page=1&limit=20"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('response contract', () => { const b=pm.response.json(); pm.expect(b.success).to.eql(true); pm.expect(b.data.events).to.be.an(\"array\"); pm.expect(b.meta.pagination.page).to.eql(1); });"
+                ]
+              }
             }
           ]
         }

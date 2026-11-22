@@ -1,0 +1,15 @@
+# M14 read-only finance operations
+
+All routes require an admin or finance bearer token and return `Cache-Control: no-store`. They expose persisted state only; no route triggers provider verification, reconciliation, refund, payout, or money movement. Customer email, checkout URLs, provider access codes, secrets, and review-case detail JSON are omitted.
+
+`GET /api/v1/admin/payments?page=1&limit=20` returns `data.payments` and `meta.pagination`. Optional `status` is `initialization_pending`, `pending`, `succeeded`, `mismatch`, `late_success`, or `failed`; `orderId` is a UUID. `from` and `to` are inclusive UTC creation dates. Each payment has `id`, `orderId`, `reference`, `status`, `orderStatus`, `expectedAmountMinor` (decimal string), `currency`, nullable `paidAt`/`verifiedAt`, `createdAt`, and `updatedAt`. `GET /api/v1/admin/payments/:paymentId` adds `reviewCases` with ID, case type, status, and timestamps. A missing payment returns `404 PAYMENT_NOT_FOUND`.
+
+`GET /api/v1/admin/transactions?page=1&limit=20` lists immutable customer-payment ledger entries under `data.transactions`, newest first. Optional `direction=credit|debit`, `paymentId`, `from`, and `to` filter the result. Entries include `id`, `orderId`, `paymentId`, `entryType`, `direction`, `amountMinor` (decimal string), `currency`, `paymentStatus`, and `createdAt`. This is the Paystack payment ledger, not a COD cash collection or seller payout list. The existing six reports cover those separate accounting views.
+
+`GET /api/v1/admin/payment-review-cases?page=1&limit=20` returns `data.reviewCases`, with optional `status=open|refund_pending|resolved` and inclusive UTC dates. Cases include `id`, `orderId`, `paymentId`, `caseType`, `status`, `createdAt`, and `resolvedAt`; no raw provider payload or identity data is returned. All lists cap `limit` at 100 and reject invalid filters or reversed date ranges with `400`. Unknown IDs return `404`; other roles receive `403`.
+
+Reports and CSV exports remain defined in [reviews-merchandising-reporting.md](reviews-merchandising-reporting.md). Report totals cover the returned rows and disclose truncation. Never present a report-limited sum as an all-time balance. Production MySQL and provider verification remain separate gates.
+
+## M14 Postman handover
+
+Use an isolated `_test` database with `NODE_ENV=test`; `npm run migrate` applies current schema and `npm run seed:test` creates guarded synthetic users/products. Log in through the existing collection requests to populate `adminAccessToken` and `sellerAccessToken`. Create a synthetic Paystack order/payment through the existing B06/B07 local fake-provider sequence before running `M14 finance reads`; that sequence supplies the payment ID selected into `m14PaymentId` by the first request. The folder lists payment statuses, reads the selected detail, lists ledger transactions and reconciliation cases, then confirms a seller receives `403`. If no payment exists, the detail request must be skipped until a synthetic payment is created. No M14 request initiates or reconciles a provider action. The folder has not yet been executed against a database in this follow-up.

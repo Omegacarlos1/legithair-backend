@@ -101,6 +101,17 @@ describe('seller onboarding and approval against MariaDB', function () {
     assert.equal(JSON.stringify(rows[0]).includes('synthetic-rejected-value'), false);
   });
 
+  it('restricts admin seller reads and paginates filtered results', async () => {
+    await api.get('/api/v1/admin/sellers').expect(401);
+    await api.get('/api/v1/admin/sellers').set('authorization', `Bearer ${ownerToken}`).expect(403);
+    const list = await api.get('/api/v1/admin/sellers?page=1&limit=10&approvalStatus=suspended').set('authorization', `Bearer ${adminToken}`).expect(200);
+    assert.ok(list.body.data.sellers.some((seller: { id: string }) => seller.id === ownerSellerId));
+    assert.ok(list.body.meta.pagination.total >= 1);
+    const detail = await api.get(`/api/v1/admin/sellers/${ownerSellerId}`).set('authorization', `Bearer ${adminToken}`).expect(200);
+    assert.equal(detail.body.data.seller.id, ownerSellerId);
+    await api.get('/api/v1/admin/sellers?approvalStatus=unknown').set('authorization', `Bearer ${adminToken}`).expect(400);
+  });
+
   it('allows idempotent admin approval only after synthetic verified state', async () => {
     await pool.query("UPDATE sellers SET identity_status = 'verified', approval_status = 'pending', approval_reason = NULL, suspended_at = NULL WHERE id = ?", [ownerSellerId]);
     const approved = await api.patch(`/api/v1/admin/sellers/${ownerSellerId}/status`).set('authorization', `Bearer ${adminToken}`).send({ status: 'approved', reason: 'Synthetic verified fixture' }).expect(200);

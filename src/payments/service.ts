@@ -331,9 +331,12 @@ function paymentView(payment: PaymentRow): object {
 }
 
 function providerAppError(error: unknown): AppError {
-  if (error instanceof PaymentProviderError && error.code === 'PAYSTACK_NOT_CONFIGURED') return new AppError(503, 'PAYMENT_PROVIDER_NOT_CONFIGURED', 'Paystack payment processing is not configured');
-  if (error instanceof PaymentProviderError && error.transient) return new AppError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'Paystack is temporarily unavailable');
-  return new AppError(502, 'PAYMENT_PROVIDER_ERROR', 'Paystack could not process the request');
+  let result: AppError;
+  if (error instanceof PaymentProviderError && error.code === 'PAYSTACK_NOT_CONFIGURED') result = new AppError(503, 'PAYMENT_PROVIDER_NOT_CONFIGURED', 'Paystack payment processing is not configured');
+  else if (error instanceof PaymentProviderError && error.transient) result = new AppError(503, 'PAYMENT_PROVIDER_UNAVAILABLE', 'Paystack is temporarily unavailable');
+  else result = new AppError(502, 'PAYMENT_PROVIDER_ERROR', 'Paystack could not process the request');
+  if (error instanceof PaymentProviderError) result.cause = error;
+  return result;
 }
 
 function jsonObject(value: string | object): Record<string, unknown> { return (typeof value === 'string' ? JSON.parse(value) : value) as Record<string, unknown>; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
-import { PaystackHttpProvider, verifyPaystackSignature } from '../../src/payments/provider.js';
+import { PaystackHttpProvider, PaymentProviderError, verifyPaystackSignature } from '../../src/payments/provider.js';
 
 describe('Paystack provider adapter', () => {
   it('initializes an NGN transaction with server-controlled fields', async () => {
@@ -24,6 +24,14 @@ describe('Paystack provider adapter', () => {
     const result = await provider.verify('LH-ref');
     assert.equal(result.providerTransactionId, '18446744073709551615');
     assert.equal(result.paidAt?.toISOString(), '2026-10-26T12:00:00.000Z');
+  });
+
+  it('retains the Paystack rejection reason and HTTP status for backend diagnostics', async () => {
+    const provider = new PaystackHttpProvider('sk_test_synthetic', 'https://paystack.test', 1000, async () => new Response(JSON.stringify({ status: false, message: 'Invalid email address' }), { status: 400 }));
+    await assert.rejects(
+      provider.initialize({ email: 'buyer@example.test', amountMinor: 125000, currency: 'NGN', reference: 'LH-abc', metadata: { order_id: 'order-1', payment_id: 'payment-1' } }),
+      (error: unknown) => error instanceof PaymentProviderError && error.code === 'PAYSTACK_REQUEST_FAILED' && error.httpStatus === 400 && error.message === 'Invalid email address'
+    );
   });
 
   it('verifies the documented HMAC SHA-512 raw-body signature', () => {

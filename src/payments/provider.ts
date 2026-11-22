@@ -31,7 +31,7 @@ export interface PaymentProvider {
 }
 
 export class PaymentProviderError extends Error {
-  public constructor(public readonly code: string, message: string, public readonly transient: boolean) { super(message); }
+  public constructor(public readonly code: string, message: string, public readonly transient: boolean, public readonly httpStatus?: number) { super(message); }
 }
 
 interface PaystackEnvelope<T> { status?: boolean; message?: string; data?: T }
@@ -97,7 +97,7 @@ export class PaystackHttpProvider implements PaymentProvider {
     try { envelope = await response.json() as PaystackEnvelope<T>; }
     catch { throw new PaymentProviderError('PAYSTACK_INVALID_RESPONSE', 'Paystack returned a non-JSON response', response.status >= 500); }
     if (!response.ok || envelope.status !== true) {
-      throw new PaymentProviderError('PAYSTACK_REQUEST_FAILED', envelope.message ?? 'Paystack rejected the request', response.status >= 500 || response.status === 429);
+      throw new PaymentProviderError('PAYSTACK_REQUEST_FAILED', envelope.message ?? 'Paystack rejected the request', response.status >= 500 || response.status === 429, response.status);
     }
     return envelope;
   }

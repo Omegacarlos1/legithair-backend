@@ -2,6 +2,23 @@ openapi: 3.1.0
 info: { title: Legit Hair Backend, version: 0.1.0 }
 servers: [{ url: 'http://127.0.0.1:3000' }]
 paths:
+  /api/v1/admin/staff:
+    get:
+      summary: List staff accounts with roles
+      responses: { '200': { description: Staff in data.staff and meta.pagination }, '401': { description: Authentication required }, '403': { description: Admin required } }
+  /api/v1/admin/staff/{userId}:
+    get:
+      summary: Read account roles
+      responses: { '200': { description: Account in data.staff }, '403': { description: Admin required }, '404': { description: Account not found } }
+  /api/v1/admin/staff/{userId}/roles:
+    patch:
+      summary: Grant or revoke support or finance with a reason
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [role, action, reason], additionalProperties: false, properties: { role: { type: string, enum: [support, finance] }, action: { type: string, enum: [grant, revoke] }, reason: { type: string, minLength: 10, maxLength: 500 } } } } } }
+      responses: { '200': { description: Role state and changed flag }, '400': { description: Invalid input }, '403': { description: Admin required or self-change }, '404': { description: Account not found }, '409': { description: Target email unverified } }
+  /api/v1/admin/audit-events:
+    get:
+      summary: List redacted read-only audit events
+      responses: { '200': { description: Events in data.events and meta.pagination }, '400': { description: Invalid filter }, '403': { description: Admin required } }
   /health:
     get:
       summary: Process liveness
@@ -58,11 +75,26 @@ paths:
     get:
       security: [{ bearerAuth: [] }]
       summary: List current customer's addresses
-      responses: { '200': { description: Address list } }
+      responses: { '200': { description: 'Address list, selected default first', content: { application/json: { schema: { $ref: '#/components/schemas/AddressListResponse' } } } } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create current customer's address
-      responses: { '201': { description: Address created }, '400': { description: Invalid input } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateAddress' } } } }
+      responses: { '201': { description: Address created, content: { application/json: { schema: { $ref: '#/components/schemas/AddressCreatedResponse' } } } }, '400': { description: Invalid input } }
+  /api/v1/me/addresses/{addressId}:
+    patch:
+      security: [{ bearerAuth: [] }]
+      summary: Update an address owned by the current customer
+      parameters: [{ name: addressId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateAddress' } } } }
+      responses: { '200': { description: Updated owned address, content: { application/json: { schema: { $ref: '#/components/schemas/AddressResponse' } } } }, '400': { description: Invalid or empty update }, '404': { description: Address not found or not owned } }
+  /api/v1/me/addresses/{addressId}/default:
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Select one owned address as the current customer's default
+      parameters: [{ name: addressId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
+      responses: { '200': { description: Address selected and prior default cleared atomically, content: { application/json: { schema: { $ref: '#/components/schemas/AddressResponse' } } } }, '404': { description: Address not found or not owned } }
   /api/v1/sellers:
     post:
       security: [{ bearerAuth: [] }]
@@ -87,6 +119,18 @@ paths:
       parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerStatusDecision' } } } }
       responses: { '200': { description: Status updated or already current }, '400': { description: Invalid input }, '403': { description: Admin role required or self-decision forbidden }, '404': { description: Seller not found }, '409': { description: Verified identity required for approval } }
+  /api/v1/admin/sellers:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated admin seller list
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: approvalStatus, in: query, schema: { type: string, enum: [pending, approved, suspended] } }, { name: identityStatus, in: query, schema: { type: string, enum: [not_started, pending, verified, failed, manual_review] } }]
+      responses: { '200': { description: Sellers in data.sellers and pagination in meta.pagination }, '400': { description: Invalid filter }, '401': { description: Authentication required }, '403': { description: Admin role required } }
+  /api/v1/admin/sellers/{sellerId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Admin seller detail
+      parameters: [{ name: sellerId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Seller in data.seller }, '401': { description: Authentication required }, '403': { description: Admin role required }, '404': { description: Seller not found } }
   /api/v1/categories:
     get:
       summary: List active catalogue categories
@@ -149,6 +193,12 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateProduct' } } } }
       responses: { '201': { description: Draft product created }, '400': { description: Invalid input }, '403': { description: Verified and approved seller required }, '409': { description: Category unavailable } }
   /api/v1/seller/products/{productId}:
+    delete:
+      security: [{ bearerAuth: [] }]
+      summary: Archive the seller's own product
+      description: Hides the product from seller and public lists, unpublishes it, and preserves images, audit records, stock history, and existing order references. Repeated deletion is safe.
+      parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '204': { description: Product archived or already archived }, '401': { description: Authentication required }, '403': { description: Seller unavailable or product owned by another seller }, '404': { description: Product not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Edit the approved seller's own product metadata
@@ -216,12 +266,22 @@ paths:
     post:
       summary: Create an expiring guest basket and return its raw credential once
       requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false } } } }
-      responses: { '201': { description: Guest basket created }, '429': { description: Rate limited } }
+      responses:
+        '201':
+          description: Guest basket created; the raw credential is returned only in this response
+          content: { application/json: { schema: { $ref: '#/components/schemas/GuestBasketCreated' } } }
+        '429': { description: Rate limited }
   /api/v1/baskets/current:
     get:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Read the current isolated customer or guest basket
-      responses: { '200': { description: Basket with observed/current prices and availability }, '401': { description: 'Missing, invalid, or expired credential' } }
+      description: Send exactly one owner credential. A customer with no prior basket receives a newly created empty basket.
+      responses:
+        '200':
+          description: Basket with observed/current prices and availability
+          content: { application/json: { schema: { $ref: '#/components/schemas/BasketResponse' } } }
+        '400': { description: Both customer and guest credentials were supplied }
+        '401': { description: 'Missing, invalid, expired, or merged guest credential; or invalid customer bearer token' }
   /api/v1/baskets/items:
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -233,7 +293,12 @@ paths:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Remove one product from the current basket
       parameters: [{ name: productId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '204': { description: Removed }, '404': { description: Basket item not found } }
+      description: Ownership is derived from exactly one customer or guest credential. The operation returns no response body.
+      responses:
+        '204': { description: Basket line removed; response body is empty }
+        '400': { description: Invalid product UUID or both owner credentials supplied }
+        '401': { description: 'Missing, invalid, or expired owner credential' }
+        '404': { description: Basket or basket line not found; re-read because client state is stale }
   /api/v1/baskets/refresh:
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
@@ -250,6 +315,11 @@ paths:
       summary: List active Lagos delivery zones and pickup locations
       responses: { '200': { description: Active options with NGN minor-unit fees and estimates } }
   /api/v1/admin/delivery-zones/{zoneId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read one active or inactive delivery zone
+      parameters: [{ name: zoneId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Zone in data.zone }, '403': { description: Admin role required }, '404': { description: Zone not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Update an admin-managed Lagos delivery zone
@@ -257,18 +327,31 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateDeliveryZone' } } } }
       responses: { '200': { description: Zone updated }, '403': { description: Admin role required }, '404': { description: Zone not found } }
   /api/v1/admin/delivery-zones:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all delivery zones including inactive records
+      responses: { '200': { description: Zones in data.zones }, '403': { description: Admin role required } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create an admin-managed Lagos delivery zone
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDeliveryZone' } } } }
       responses: { '201': { description: Zone created }, '403': { description: Admin role required }, '409': { description: Zone code already exists } }
   /api/v1/admin/pickup-locations:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List all pickup locations including inactive records
+      responses: { '200': { description: Locations in data.pickupLocations }, '403': { description: Admin role required } }
     post:
       security: [{ bearerAuth: [] }]
       summary: Create an admin-managed Lagos pickup location
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePickupLocation' } } } }
       responses: { '201': { description: Pickup location created }, '400': { description: Invalid or non-Lagos location }, '403': { description: Admin role required } }
   /api/v1/admin/pickup-locations/{pickupLocationId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read one active or inactive pickup location
+      parameters: [{ name: pickupLocationId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Location in data.pickupLocation }, '403': { description: Admin role required }, '404': { description: Location not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Update or deactivate an admin-managed pickup location
@@ -286,7 +369,14 @@ paths:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Create an immutable expiring NGN quote with per-seller delivery allocation
       parameters: [{ name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CheckoutQuoteInput' } } } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckoutQuoteInput' }
+            examples:
+              savedAddressDelivery: { summary: Authenticated delivery using an owned saved address, value: { deliveryMethod: delivery, zoneId: 50000000-0000-4000-8000-000000000001, addressId: 80000000-0000-4000-8000-000000000005 } }
+              pickup: { summary: Customer or guest pickup using an active location returned by delivery options, value: { deliveryMethod: pickup, pickupLocationId: 60000000-0000-4000-8000-000000000005 } }
       responses: { '201': { description: Quote created }, '200': { description: Idempotent replay }, '400': { description: Invalid request or idempotency key }, '409': { description: 'Stale price, unavailable product, unsupported address, or key conflict' } }
   /api/v1/checkout/quotes/{quoteId}:
     get:
@@ -295,6 +385,18 @@ paths:
       parameters: [{ name: quoteId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: Immutable quote snapshot }, '404': { description: Quote not found or not owned }, '410': { description: Quote expired } }
   /api/v1/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List the authenticated customer's orders newest first
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { type: string, enum: [awaiting_payment, awaiting_collection, paid, payment_failed, reservation_expired, cancelled, processing, shipped, delivered, returned, refunded] } }
+      responses:
+        '200': { description: Owner-scoped order history and stable pagination, content: { application/json: { schema: { $ref: '#/components/schemas/OrderListResponse' } } } }
+        '400': { description: Invalid pagination or status filter }
+        '401': { description: Authentication required }
+        '403': { description: Customer role required }
     post:
       security: [{ bearerAuth: [] }, { guestBasketAuth: [] }]
       summary: Atomically create one order and reserve quoted inventory
@@ -331,26 +433,79 @@ paths:
       summary: Download the immutable JSON receipt for a timely verified payment
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses: { '200': { description: JSON receipt with Content-Disposition attachment }, '401': { description: Access credential required }, '404': { description: Receipt absent or inaccessible } }
+  /api/v1/seller/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List only the authenticated seller's order portions newest first
+      parameters:
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/SuborderStatus' } }
+        - { name: deliveryMethod, in: query, schema: { type: string, enum: [delivery, pickup] } }
+      responses:
+        '200': { description: Seller-scoped order portions and stable pagination, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderListResponse' } } } }
+        '400': { description: Invalid pagination or filter }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+  /api/v1/seller/orders/{orderId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the authenticated seller's portion, items, fulfilment snapshot, and history
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Seller order detail without customer delivery PII, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderDetailResponse' } } } }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+        '404': { description: Order absent or owned by another seller }
   /api/v1/seller/orders/{orderId}/status:
     patch:
       security: [{ bearerAuth: [] }]
       summary: Advance only the authenticated seller's portion through processing and dispatch or pickup readiness
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
-      responses: { '200': { description: Seller portion advanced and aggregate progress returned }, '401': { description: Authentication required }, '403': { description: Seller role required }, '404': { description: No portion owned by this seller }, '409': { description: Invalid transition or delivery-method mismatch } }
+      requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderTransition' } } } }
+      responses:
+        '200': { description: Seller portion advanced and returned at the next version, content: { application/json: { schema: { $ref: '#/components/schemas/SellerOrderDetailResponse' } } } }
+        '401': { description: Authentication required }
+        '403': { description: Seller role and profile required }
+        '404': { description: No portion owned by this seller }
+        '409': { description: 'Stale version, invalid transition, non-fulfillable order, or delivery-method mismatch' }
+  /api/v1/admin/orders/{orderId}/suborders/{suborderId}/delivery-assignment:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read the current external courier assignment for a delivery portion
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Assignment or null in data.assignment }, '403': { description: Admin role required }, '404': { description: Order or portion not found }, '409': { description: Pickup portion } }
+    put:
+      security: [{ bearerAuth: [] }]
+      summary: Assign or reassign an external courier while a delivery portion is processing or shipped
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody: { required: true, content: { application/json: { schema: { type: object, additionalProperties: false, required: [courierName, courierReference, expectedVersion], properties: { courierName: { type: string, minLength: 2, maxLength: 120 }, courierReference: { type: string, minLength: 2, maxLength: 120 }, expectedVersion: { type: integer, minimum: 1 } } } } } }
+      responses: { '200': { description: Assignment in data.assignment and updated suborder version in data.version }, '403': { description: Admin role required }, '404': { description: Order or portion not found }, '409': { description: Stale version or portion not processing or shipped for delivery } }
   /api/v1/admin/orders/{orderId}/suborders/{suborderId}/status:
     patch:
       security: [{ bearerAuth: [] }]
       summary: Record authorised delivery, pickup, or eligible COD cancellation progress
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: suborderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
-      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: 'Invalid jump, delivery-method mismatch, or paid cancellation requiring refund' } }
+      requestBody: { required: true, content: { application/json: { schema: { type: object, required: [status, expectedVersion], additionalProperties: false, properties: { status: { type: string, enum: [processing, shipped, ready_for_pickup, delivered, picked_up, cancelled] }, expectedVersion: { type: integer, minimum: 1 }, reason: { type: string, minLength: 3, maxLength: 500 } } } } } }
+      responses: { '200': { description: Fulfilment progress updated }, '403': { description: Admin role required }, '404': { description: Order or suborder not found }, '409': { description: 'Stale version, invalid jump, delivery-method mismatch, or paid cancellation requiring refund' } }
+  /api/v1/admin/orders:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated admin order list
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: status, in: query, schema: { type: string } }, { name: paymentMethod, in: query, schema: { type: string, enum: [paystack, cod] } }]
+      responses: { '200': { description: Orders in data.orders and pagination in meta.pagination }, '400': { description: Invalid filter }, '401': { description: Authentication required }, '403': { description: Admin role required } }
+  /api/v1/admin/orders/{orderId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Admin order detail with redacted delivery and versioned seller portions
+      parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Order in data.order }, '401': { description: Authentication required }, '403': { description: Admin role required }, '404': { description: Order not found } }
   /api/v1/orders/{orderId}/fulfilment:
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: Read owned seller-level progress, snapshotted Lagos estimate or pickup details, and COD collection eligibility
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Fulfilment progress }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
+      responses: { '200': { description: Fulfilment progress and chronological timeline for a customer or guest owner, content: { application/json: { schema: { $ref: '#/components/schemas/FulfilmentResponse' } } } }, '401': { description: Access credential required }, '404': { description: Order absent or inaccessible } }
   /api/v1/orders/{orderId}/cancel:
     post:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
@@ -364,13 +519,24 @@ paths:
       summary: Submit an idempotent item-level return request within the configured window
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }, { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReturn' } } } }
-      responses: { '201': { description: Return request created }, '200': { description: Identical idempotent replay }, '404': { description: Order or item absent or inaccessible }, '409': { description: 'Invalid state, closed window, quantity exceeded, or changed replay' }, '503': { description: Return window not configured } }
+      responses: { '201': { description: Return request created, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnSubmissionResponse' } } } }, '200': { description: Identical idempotent replay, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnSubmissionResponse' } } } }, '404': { description: Order or item absent or inaccessible }, '409': { description: 'Invalid state, closed window, quantity exceeded, or changed replay' }, '503': { description: Return window not configured } }
     get:
       security: [{ bearerAuth: [] }, { orderTrackingAuth: [] }]
       summary: List return and refund outcomes for the owned order
       parameters: [{ name: orderId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses: { '200': { description: Return requests and refund states }, '404': { description: Order absent or inaccessible } }
+      responses: { '200': { description: Return requests and refund states, content: { application/json: { schema: { $ref: '#/components/schemas/ReturnListResponse' } } } }, '404': { description: Order absent or inaccessible } }
+  /api/v1/admin/returns:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: List return requests for admin review, newest first
+      parameters: [{ name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }, { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { name: status, in: query, schema: { type: string, enum: [requested, approved, rejected, refund_pending, refund_failed, refunded] } }, { name: orderId, in: query, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Return summaries in data.returns and meta.pagination }, '403': { description: Admin role required } }
   /api/v1/admin/returns/{returnRequestId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read authoritative return items and refund state before review
+      parameters: [{ name: returnRequestId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Full return in data.returnRequest }, '403': { description: Admin role required }, '404': { description: Return request not found } }
     patch:
       security: [{ bearerAuth: [] }]
       summary: Reject a return or approve its exact bounded Paystack refund
@@ -442,14 +608,14 @@ paths:
         - { in: path, name: productId, required: true, schema: { type: string, format: uuid } }
         - { in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }
         - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }
-      responses: { '200': { description: Published reviews and rating summary }, '404': { description: Published product not found } }
+      responses: { '200': { description: 'Published reviews, rating summary, and stable pagination', content: { application/json: { schema: { $ref: '#/components/schemas/PublicReviewListResponse' } } } }, '404': { description: Published product not found } }
   /api/v1/reviews:
     post:
       security: [{ bearerAuth: [] }]
       summary: Submit one idempotent review linked to the authenticated customer's completed purchase
       parameters: [{ in: header, name: Idempotency-Key, required: true, schema: { type: string, minLength: 8, maxLength: 128 } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateReview' } } } }
-      responses: { '201': { description: Pending review created }, '200': { description: Identical idempotent replay }, '403': { description: Customer role or completed purchase required }, '409': { description: Review already exists or key reused } }
+      responses: { '201': { description: Pending review created, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewSubmissionResponse' } } } }, '200': { description: Identical idempotent replay, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewSubmissionResponse' } } } }, '403': { description: Customer role or completed purchase required }, '409': { description: Review already exists or key reused } }
   /api/v1/admin/reviews:
     get:
       security: [{ bearerAuth: [] }]
@@ -487,6 +653,30 @@ paths:
       parameters: [{ in: path, name: bannerId, required: true, schema: { type: string, format: uuid } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateBanner' } } } }
       responses: { '200': { description: Banner updated }, '400': { description: Invalid URL or time window }, '403': { description: Admin role required }, '404': { description: Banner not found } }
+  /api/v1/admin/payments:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated redacted Paystack payment status reads for admin or finance
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: status, schema: { type: string, enum: [initialization_pending, pending, succeeded, mismatch, late_success, failed] } }, { in: query, name: orderId, schema: { type: string, format: uuid } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Payments in data.payments and meta.pagination; amounts are decimal-string NGN minor units }, '400': { description: Invalid filters }, '403': { description: Admin or finance role required } }
+  /api/v1/admin/payments/{paymentId}:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Read payment status and review-case outcomes without customer identity values
+      parameters: [{ in: path, name: paymentId, required: true, schema: { type: string, format: uuid } }]
+      responses: { '200': { description: Payment in data.payment }, '403': { description: Admin or finance role required }, '404': { description: Payment not found } }
+  /api/v1/admin/transactions:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated persisted payment-ledger credits and refund debits
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: direction, schema: { type: string, enum: [credit, debit] } }, { in: query, name: paymentId, schema: { type: string, format: uuid } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Ledger entries in data.transactions and meta.pagination; amounts are decimal strings }, '403': { description: Admin or finance role required } }
+  /api/v1/admin/payment-review-cases:
+    get:
+      security: [{ bearerAuth: [] }]
+      summary: Paginated payment reconciliation exceptions
+      parameters: [{ in: query, name: page, schema: { type: integer, minimum: 1, default: 1 } }, { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100, default: 20 } }, { in: query, name: status, schema: { type: string, enum: [open, refund_pending, resolved] } }, { in: query, name: from, schema: { type: string, format: date } }, { in: query, name: to, schema: { type: string, format: date } }]
+      responses: { '200': { description: Cases in data.reviewCases and meta.pagination }, '403': { description: Admin or finance role required } }
   /api/v1/admin/reports/{report}:
     get:
       security: [{ bearerAuth: [] }]
@@ -574,6 +764,449 @@ components:
     guestBasketAuth: { type: apiKey, in: header, name: X-Guest-Basket-Token }
     orderTrackingAuth: { type: apiKey, in: header, name: X-Order-Tracking-Token }
   schemas:
+    Address:
+      type: object
+      required: [id, label, recipientName, phone, line1, line2, city, state, countryCode, isDefault]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string }
+        recipientName: { type: string }
+        phone: { type: string }
+        line1: { type: string }
+        line2: { type: [string, 'null'] }
+        city: { type: string }
+        state: { type: string }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
+        isDefault: { type: boolean }
+    AddressListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [addresses], additionalProperties: false, properties: { addresses: { type: array, items: { $ref: '#/components/schemas/Address' } } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AddressCreatedResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [id], additionalProperties: false, properties: { id: { type: string, format: uuid } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    AddressResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [address], additionalProperties: false, properties: { address: { $ref: '#/components/schemas/Address' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    CreateAddress:
+      type: object
+      required: [label, recipientName, phone, line1, city, state]
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 50 }
+        recipientName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        line1: { type: string, minLength: 3, maxLength: 200 }
+        line2: { type: string, maxLength: 200 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100 }
+        countryCode: { type: string, minLength: 2, maxLength: 2, default: NG }
+        isDefault: { type: boolean, default: false }
+    UpdateAddress:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        label: { type: string, minLength: 1, maxLength: 50 }
+        recipientName: { type: string, minLength: 2, maxLength: 100 }
+        phone: { type: string, minLength: 7, maxLength: 30 }
+        line1: { type: string, minLength: 3, maxLength: 200 }
+        line2: { type: [string, 'null'], maxLength: 200 }
+        city: { type: string, minLength: 2, maxLength: 100 }
+        state: { type: string, minLength: 2, maxLength: 100 }
+        countryCode: { type: string, minLength: 2, maxLength: 2 }
+    GuestBasketCreated:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [basketId, guestBasketToken, expiresInDays]
+          additionalProperties: false
+          properties:
+            basketId: { type: string, format: uuid }
+            guestBasketToken: { type: string, minLength: 32, maxLength: 200, description: Opaque bearer credential returned once; never put it in a URL or log. }
+            expiresInDays: { type: integer, minimum: 1, maximum: 90 }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    BasketResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [basket]
+          additionalProperties: false
+          properties: { basket: { $ref: '#/components/schemas/Basket' } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    Basket:
+      type: object
+      required: [id, ownerType, status, expiresAt, items, totals, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        ownerType: { type: string, enum: [guest, customer] }
+        status: { const: active }
+        expiresAt: { type: [string, 'null'], format: date-time, description: Null for customer baskets. }
+        items: { type: array, items: { $ref: '#/components/schemas/BasketItem' } }
+        totals:
+          type: object
+          required: [currency, itemsSubtotalMinor]
+          additionalProperties: false
+          properties:
+            currency: { const: NGN }
+            itemsSubtotalMinor: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BasketItem:
+      type: object
+      required: [productId, name, seller, quantity, observedPriceMinor, currentPriceMinor, lineTotalMinor, priceChanged, available, stockQuantity]
+      additionalProperties: false
+      properties:
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        seller:
+          type: object
+          required: [id, businessName]
+          additionalProperties: false
+          properties: { id: { type: string, format: uuid }, businessName: { type: string } }
+        quantity: { type: integer, minimum: 1, maximum: 20 }
+        observedPriceMinor: { type: integer, minimum: 0 }
+        currentPriceMinor: { type: integer, minimum: 0 }
+        lineTotalMinor: { type: integer, minimum: 0 }
+        priceChanged: { type: boolean }
+        available: { type: boolean }
+        stockQuantity: { type: integer, minimum: 0 }
+    ResponseMeta:
+      type: object
+      required: [requestId]
+      additionalProperties: false
+      properties: { requestId: { type: string } }
+    Pagination:
+      type: object
+      required: [page, limit, total, totalPages]
+      additionalProperties: false
+      properties:
+        page: { type: integer, minimum: 1 }
+        limit: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
+        totalPages: { type: integer, minimum: 0 }
+    PaginatedResponseMeta:
+      type: object
+      required: [requestId, pagination]
+      additionalProperties: false
+      properties:
+        requestId: { type: string }
+        pagination: { $ref: '#/components/schemas/Pagination' }
+    MoneyTotals:
+      type: object
+      required: [itemsSubtotalMinor, deliveryTotalMinor, grandTotalMinor]
+      additionalProperties: false
+      properties:
+        itemsSubtotalMinor: { type: integer, minimum: 0 }
+        deliveryTotalMinor: { type: integer, minimum: 0 }
+        grandTotalMinor: { type: integer, minimum: 0 }
+    CustomerOrderItem:
+      type: object
+      required: [id, productId, productName, quantity, unitPriceMinor, lineTotalMinor]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        productName: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPriceMinor: { type: integer, minimum: 0 }
+        lineTotalMinor: { type: integer, minimum: 0 }
+    OrderSummary:
+      type: object
+      required: [id, paymentMethod, status, currency, deliveryMethod, totals, items, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        paymentMethod: { type: string, enum: [paystack, cod] }
+        status: { type: string, enum: [awaiting_payment, awaiting_collection, paid, payment_failed, reservation_expired, cancelled, processing, shipped, delivered, returned, refunded] }
+        currency: { const: NGN }
+        deliveryMethod: { type: string, enum: [delivery, pickup] }
+        totals: { $ref: '#/components/schemas/MoneyTotals' }
+        items: { type: array, items: { $ref: '#/components/schemas/CustomerOrderItem' } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SuborderStatus:
+      type: string
+      enum: [pending, processing, ready_for_pickup, shipped, delivered, picked_up, cancelled, returned, refunded]
+    SellerDelivery:
+      oneOf:
+        - type: object
+          required: [method, zone]
+          additionalProperties: false
+          properties:
+            method: { const: delivery }
+            zone: { type: [object, 'null'], description: Immutable zone and estimate snapshot; customer recipient, phone, and street address are never included. }
+        - type: object
+          required: [method, pickupLocation]
+          additionalProperties: false
+          properties:
+            method: { const: pickup }
+            pickupLocation:
+              type: [object, 'null']
+              properties:
+                name: { type: string }
+                addressLine: { type: string }
+                city: { type: string }
+                state: { type: string }
+                estimate: { type: object }
+    SellerOrderSummary:
+      type: object
+      required: [id, orderId, status, version, allowedTransitions, orderStatus, paymentMethod, currency, delivery, totals, itemCount, fulfilledAt, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid, description: Seller-specific suborder identifier. }
+        orderId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/SuborderStatus' }
+        version: { type: integer, minimum: 1, description: Opaque optimistic-concurrency version to echo as expectedVersion. }
+        allowedTransitions: { type: array, items: { type: string, enum: [processing, shipped, ready_for_pickup] } }
+        orderStatus: { type: string }
+        paymentMethod: { type: string, enum: [paystack, cod] }
+        currency: { const: NGN }
+        delivery: { $ref: '#/components/schemas/SellerDelivery' }
+        totals:
+          type: object
+          required: [itemsSubtotalMinor, deliveryFeeMinor, commissionMinor, sellerNetMinor]
+          additionalProperties: false
+          properties:
+            itemsSubtotalMinor: { type: integer, minimum: 0 }
+            deliveryFeeMinor: { type: integer, minimum: 0 }
+            commissionMinor: { type: integer, minimum: 0 }
+            sellerNetMinor: { type: integer, minimum: 0 }
+        itemCount: { type: integer, minimum: 0 }
+        fulfilledAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    SellerOrderDetail:
+      allOf:
+        - { $ref: '#/components/schemas/SellerOrderSummary' }
+        - type: object
+          required: [items, timeline]
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                required: [id, productId, productName, quantity, unitPriceMinor, lineTotalMinor, commission]
+                additionalProperties: false
+                properties:
+                  id: { type: string, format: uuid }
+                  productId: { type: string, format: uuid }
+                  productName: { type: string }
+                  quantity: { type: integer, minimum: 1 }
+                  unitPriceMinor: { type: integer, minimum: 0 }
+                  lineTotalMinor: { type: integer, minimum: 0 }
+                  commission: { type: object }
+            timeline:
+              type: array
+              items:
+                type: object
+                required: [id, fromStatus, toStatus, reason, createdAt]
+                additionalProperties: false
+                properties:
+                  id: { type: string, pattern: '^suborder:[0-9]+$' }
+                  fromStatus: { type: string }
+                  toStatus: { type: string }
+                  reason: { type: [string, 'null'] }
+                  createdAt: { type: string, format: date-time }
+    SellerOrderListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [orders], additionalProperties: false, properties: { orders: { type: array, items: { $ref: '#/components/schemas/SellerOrderSummary' } } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
+    SellerOrderDetailResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [sellerOrder], additionalProperties: false, properties: { sellerOrder: { $ref: '#/components/schemas/SellerOrderDetail' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    SellerOrderTransition:
+      type: object
+      required: [status, expectedVersion]
+      additionalProperties: false
+      properties:
+        status: { type: string, enum: [processing, shipped, ready_for_pickup] }
+        expectedVersion: { type: integer, minimum: 1 }
+        reason: { type: string, minLength: 3, maxLength: 500 }
+    OrderListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [orders], additionalProperties: false, properties: { orders: { type: array, items: { $ref: '#/components/schemas/OrderSummary' } } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
+    FulfilmentTimelineEvent:
+      type: object
+      required: [id, type, suborderId, fromStatus, toStatus, reason, createdAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, pattern: '^(order|suborder):[0-9]+$' }
+        type: { type: string, enum: [order_status, suborder_status] }
+        suborderId: { type: [string, 'null'], format: uuid }
+        fromStatus: { type: [string, 'null'] }
+        toStatus: { type: string }
+        reason: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+    FulfilmentProgress:
+      type: object
+      required: [orderId, status, deliveryMethod, destination, suborders, timeline, codCollection, codEarningsEligible]
+      additionalProperties: false
+      properties:
+        orderId: { type: string, format: uuid }
+        status: { type: string }
+        deliveryMethod: { type: string, enum: [delivery, pickup] }
+        destination: { type: [object, 'null'] }
+        suborders:
+          type: array
+          items:
+            type: object
+            required: [id, sellerId, status, fulfilledAt]
+            additionalProperties: false
+            properties: { id: { type: string, format: uuid }, sellerId: { type: string, format: uuid }, status: { type: string }, fulfilledAt: { type: [string, 'null'], format: date-time } }
+        timeline: { type: array, items: { $ref: '#/components/schemas/FulfilmentTimelineEvent' } }
+        codCollection: { type: [object, 'null'] }
+        codEarningsEligible: { type: boolean }
+    FulfilmentResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [fulfilment], additionalProperties: false, properties: { fulfilment: { $ref: '#/components/schemas/FulfilmentProgress' } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    RefundSummary:
+      type: object
+      required: [id, returnRequestId, paymentReviewCaseId, paymentId, providerRefundId, amountMinor, deliveryRefundMinor, currency, status, lastError, processedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        returnRequestId: { type: [string, 'null'], format: uuid }
+        paymentReviewCaseId: { type: [string, 'null'], format: uuid }
+        paymentId: { type: string, format: uuid }
+        providerRefundId: { type: [string, 'null'] }
+        amountMinor: { type: integer, minimum: 0 }
+        deliveryRefundMinor: { type: integer, minimum: 0 }
+        currency: { const: NGN }
+        status: { type: string }
+        lastError: { type: [string, 'null'] }
+        processedAt: { type: [string, 'null'], format: date-time }
+    ReturnRequest:
+      type: object
+      required: [id, orderId, reason, status, adminNote, items, refund, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        reason: { type: string }
+        status: { type: string, enum: [requested, approved, rejected, refund_pending, refunded, refund_failed] }
+        adminNote: { type: [string, 'null'] }
+        items:
+          type: array
+          items:
+            type: object
+            required: [orderItemId, quantity, itemRefundMinor, commissionReversalMinor, sellerReversalMinor, stockDisposition]
+            additionalProperties: false
+            properties: { orderItemId: { type: string, format: uuid }, quantity: { type: integer, minimum: 1 }, itemRefundMinor: { type: integer, minimum: 0 }, commissionReversalMinor: { type: integer, minimum: 0 }, sellerReversalMinor: { type: integer, minimum: 0 }, stockDisposition: { type: string, enum: [pending, restock, no_restock] } }
+        refund: { oneOf: [{ $ref: '#/components/schemas/RefundSummary' }, { type: 'null' }] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ReturnSubmissionResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [returnRequest, idempotentReplay], additionalProperties: false, properties: { returnRequest: { $ref: '#/components/schemas/ReturnRequest' }, idempotentReplay: { type: boolean } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ReturnListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [returns], additionalProperties: false, properties: { returns: { type: array, items: { $ref: '#/components/schemas/ReturnRequest' } } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    ReviewRecord:
+      type: object
+      required: [id, productId, orderItemId, userId, rating, title, body, status, moderationReason, moderatedBy, moderatedAt, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        orderItemId: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string }
+        status: { type: string, enum: [pending, published, rejected] }
+        moderationReason: { type: [string, 'null'] }
+        moderatedBy: { type: [string, 'null'], format: uuid }
+        moderatedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ReviewSubmissionResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data: { type: object, required: [review, idempotentReplay], additionalProperties: false, properties: { review: { $ref: '#/components/schemas/ReviewRecord' }, idempotentReplay: { type: boolean } } }
+        meta: { $ref: '#/components/schemas/ResponseMeta' }
+    PublicReview:
+      type: object
+      required: [id, rating, title, body, authorName, createdAt, updatedAt]
+      additionalProperties: false
+      properties:
+        id: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        title: { type: string }
+        body: { type: string }
+        authorName: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    PublicReviewListResponse:
+      type: object
+      required: [success, data, meta]
+      additionalProperties: false
+      properties:
+        success: { const: true }
+        data:
+          type: object
+          required: [reviews, summary]
+          additionalProperties: false
+          properties:
+            reviews: { type: array, items: { $ref: '#/components/schemas/PublicReview' } }
+            summary: { type: object, required: [count, averageRating], additionalProperties: false, properties: { count: { type: integer, minimum: 0 }, averageRating: { type: [number, 'null'], minimum: 1, maximum: 5 } } }
+        meta: { $ref: '#/components/schemas/PaginatedResponseMeta' }
     InitializePayment:
       type: object
       required: [orderId]
@@ -592,6 +1225,7 @@ components:
       type: object
       required: [items, reason]
       additionalProperties: false
+      description: Return item quantities and a reason. Evidence files/URLs are intentionally not accepted until object-storage, authorization, and retention contracts are approved.
       properties:
         items:
           type: array

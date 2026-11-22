@@ -1,0 +1,10 @@
+2026-11-16 M12 admin contract follow-up, local Windows workspace
+Commands executed:
+npm run lint — PASS (0 errors)
+npm run typecheck — PASS
+npm run build — PASS
+npm run test:unit — BLOCKED before test discovery: Node/tsx uv_os_get_passwd ENOMEM
+npm run test:api — BLOCKED before test discovery: Node/tsx uv_os_get_passwd ENOMEM
+npm run test:integration — BLOCKED before test discovery: Node/tsx uv_os_get_passwd ENOMEM
+PowerShell ConvertFrom-Json of maintained Postman collection — PASS (11 top-level folders)
+No test assertions were executed, and no MySQL or provider compatibility claim is made.

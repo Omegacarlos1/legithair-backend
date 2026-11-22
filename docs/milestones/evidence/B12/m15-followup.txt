@@ -1,0 +1,9 @@
+2026-11-17 M15 follow-up
+npm run lint: PASS (exit 0)
+npm run typecheck: PASS (exit 0)
+npm run build: PASS (exit 0)
+npm run test:unit: BLOCKED before test execution by Node/tsx uv_os_get_passwd ENOMEM (exit 1; 0 tests executed)
+npm run test:api: BLOCKED before test execution by same error (exit 1; 0 tests executed)
+npm run test:integration: BLOCKED before test execution by same error (exit 1; 0 tests executed)
+git diff --check: PASS after trailing blank line correction
+Database migration/Postman execution: NOT RUN

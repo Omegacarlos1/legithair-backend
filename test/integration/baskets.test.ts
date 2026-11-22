@@ -96,6 +96,21 @@ describe('baskets and delivery quotes against MariaDB', function () {
     const isolated = await api.get('/api/v1/baskets/current').set('x-guest-basket-token', otherGuest).expect(200);
     assert.equal(isolated.body.data.basket.items.length, 0);
     await api.post('/api/v1/baskets/items').set('x-guest-basket-token', guestToken).send({ productId: productOut, quantity: 1 }).expect(409);
+
+    const removalGuest = await createGuest();
+    await api.post('/api/v1/baskets/items').set('x-guest-basket-token', removalGuest).send({ productId: product1, quantity: 1 }).expect(201);
+    const beforeRemoval = await api.get('/api/v1/baskets/current').set('x-guest-basket-token', removalGuest).expect(200);
+    assert.equal(beforeRemoval.body.data.basket.ownerType, 'guest');
+    assert.equal(beforeRemoval.body.data.basket.items[0].productId, product1);
+    assert.ok(beforeRemoval.body.data.basket.expiresAt);
+    await api.delete(`/api/v1/baskets/items/${product1}`).set('x-guest-basket-token', otherGuest).expect(404);
+    const afterCrossGuestAttempt = await api.get('/api/v1/baskets/current').set('x-guest-basket-token', removalGuest).expect(200);
+    assert.equal(afterCrossGuestAttempt.body.data.basket.items[0].productId, product1);
+    await api.delete(`/api/v1/baskets/items/${product1}`).set('x-guest-basket-token', removalGuest).expect(204);
+    const afterRemoval = await api.get('/api/v1/baskets/current').set('x-guest-basket-token', removalGuest).expect(200);
+    assert.equal(afterRemoval.body.data.basket.items.length, 0);
+    const missing = await api.delete(`/api/v1/baskets/items/${product1}`).set('x-guest-basket-token', removalGuest).expect(404);
+    assert.equal(missing.body.error.code, 'BASKET_ITEM_NOT_FOUND');
   });
 
   it('lets admins manage zones and pickup locations while rejecting non-Lagos addresses', async () => {
@@ -173,5 +188,20 @@ describe('baskets and delivery quotes against MariaDB', function () {
     await new Promise((resolve) => setTimeout(resolve, 2100));
     const expired = await api.get(`/api/v1/checkout/quotes/${created.body.data.quote.id}`).set('authorization', `Bearer ${customerToken}`).expect(410);
     assert.equal(expired.body.error.code, 'QUOTE_EXPIRED');
+  });
+
+  it('reads and removes only the authenticated customer basket line', async () => {
+    const beforeRemoval = await api.get('/api/v1/baskets/current').set('authorization', `Bearer ${customerToken}`).expect(200);
+    assert.equal(beforeRemoval.body.data.basket.ownerType, 'customer');
+    assert.equal(beforeRemoval.body.data.basket.expiresAt, null);
+    assert.ok(beforeRemoval.body.data.basket.items.some((item: { productId: string }) => item.productId === product2));
+    await api.delete(`/api/v1/baskets/items/${product2}`).set('authorization', `Bearer ${customerToken}`).expect(204);
+    const afterRemoval = await api.get('/api/v1/baskets/current').set('authorization', `Bearer ${customerToken}`).expect(200);
+    assert.ok(!afterRemoval.body.data.basket.items.some((item: { productId: string }) => item.productId === product2));
+    const missing = await api.delete(`/api/v1/baskets/items/${product2}`).set('authorization', `Bearer ${customerToken}`).expect(404);
+    assert.equal(missing.body.error.code, 'BASKET_ITEM_NOT_FOUND');
+    await api.delete(`/api/v1/baskets/items/${product1}`).set('authorization', `Bearer ${otherCustomerToken}`).expect(404);
+    const afterCrossCustomerAttempt = await api.get('/api/v1/baskets/current').set('authorization', `Bearer ${customerToken}`).expect(200);
+    assert.ok(afterCrossCustomerAttempt.body.data.basket.items.some((item: { productId: string }) => item.productId === product1));
   });
 });

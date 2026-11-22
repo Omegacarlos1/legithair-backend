@@ -4,13 +4,115 @@ All routes use the standard success/error envelope. Customer routes accept eithe
 
 ## Fulfilment progress
 
-`PATCH /api/v1/seller/orders/:orderId/status` accepts `processing`, `shipped`, or `ready_for_pickup`. A delivery portion follows `pending -> processing -> shipped`; a pickup portion follows `pending -> processing -> ready_for_pickup`. The authenticated seller can change only its own portion.
+### Seller order workspace
+
+`GET /api/v1/seller/orders?page=1&limit=20&status=pending&deliveryMethod=delivery` lists only the authenticated seller's portions, newest first. `status` and `deliveryMethod` are optional. `page` defaults to `1`; `limit` defaults to `20` and is capped at `100`. `GET /api/v1/seller/orders/:orderId` returns the matching detail, immutable items and seller-portion timeline. An unknown order and another seller's order both return `404 SELLER_ORDER_NOT_FOUND`.
+
+Both reads return `version` and `allowedTransitions`. The delivery object is an immutable checkout snapshot. For company delivery it contains only the zone/estimate and deliberately omits the customer's recipient name, phone and street address. For pickup it contains the public pickup name, address and estimate.
+
+```json
+{
+  "success": true,
+  "data": {
+    "sellerOrder": {
+      "id": "92000000-0000-4000-8000-000000000001",
+      "orderId": "90000000-0000-4000-8000-000000000001",
+      "status": "processing",
+      "version": 2,
+      "allowedTransitions": ["shipped"],
+      "orderStatus": "processing",
+      "paymentMethod": "cod",
+      "currency": "NGN",
+      "delivery": { "method": "delivery", "zone": { "name": "Ikeja", "estimate": { "minBusinessDays": 1, "maxBusinessDays": 3 } } },
+      "totals": { "itemsSubtotalMinor": 100000, "deliveryFeeMinor": 5000, "commissionMinor": 10000, "sellerNetMinor": 90000 },
+      "itemCount": 1,
+      "fulfilledAt": null,
+      "createdAt": "2026-11-11T09:00:00.000Z",
+      "updatedAt": "2026-11-11T09:05:00.000Z",
+      "items": [{ "id": "91000000-0000-4000-8000-000000000001", "productId": "40000000-0000-4000-8000-000000000051", "productName": "Straight Wig", "quantity": 1, "unitPriceMinor": 100000, "lineTotalMinor": 100000, "commission": { "basis": "line_item_gross", "rateBps": 1000, "amountMinor": 10000 } }],
+      "timeline": [{ "id": "suborder:17", "fromStatus": "pending", "toStatus": "processing", "reason": "Preparing order", "createdAt": "2026-11-11T09:05:00.000Z" }]
+    }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
+
+`PATCH /api/v1/seller/orders/:orderId/status` accepts `processing`, `shipped`, or `ready_for_pickup` and requires the last read `version` as `expectedVersion`:
+
+```json
+{ "status": "shipped", "expectedVersion": 2, "reason": "Handed to company dispatcher" }
+```
+
+The successful response uses the detail shape above at `data.sellerOrder`, with the incremented version. A stale browser must stop and refetch on this exact conflict; it must not silently retry with a guessed version:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "STALE_SELLER_ORDER_VERSION",
+    "message": "Seller order changed after it was read",
+    "details": { "expectedVersion": 2, "currentVersion": 3 }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
+
+The complete transition matrix is:
+
+| Actor | From | To | Constraint |
+| --- | --- | --- | --- |
+| Seller or admin | `pending` | `processing` | Parent order must be paid, COD-awaiting-collection, or already in fulfilment |
+| Seller or admin | `processing` | `shipped` | Delivery orders only |
+| Seller or admin | `processing` | `ready_for_pickup` | Pickup orders only; this is the seller pickup-readiness action |
+| Admin only | `shipped` | `delivered` | Delivery orders only |
+| Admin only | `ready_for_pickup` | `picked_up` | Pickup orders only |
+| Admin only | `pending` or `processing` | `cancelled` | COD only; stock restoration is idempotent |
+
+All other jumps return `409 INVALID_FULFILMENT_TRANSITION`; mixing delivery and pickup states returns `409 INVALID_DELIVERY_TRANSITION` or `409 INVALID_PICKUP_TRANSITION`. A seller cannot cancel, complete delivery/pickup, approve a return, or issue a refund. A syntactically valid transition on an awaiting-payment, failed, expired, cancelled, returned or refunded parent order returns `409 ORDER_NOT_FULFILLABLE`. For example, `pending -> shipped` is rejected:
+
+```json
+{
+  "success": false,
+  "error": { "code": "INVALID_FULFILMENT_TRANSITION", "message": "Suborder cannot transition from pending to shipped" },
+  "meta": { "requestId": "request-id" }
+}
+```
 
 `PATCH /api/v1/admin/orders/:orderId/suborders/:suborderId/status` completes delivery with `shipped -> delivered`, completes pickup with `ready_for_pickup -> picked_up`, and may cancel an eligible unpaid COD portion before completion. Paid cancellations must use the return/refund workflow. Invalid jumps and delivery/pickup state mixing return `409`.
 
-`GET /api/v1/orders/:orderId/fulfilment` returns aggregate status, seller portions, the immutable Lagos delivery estimate or pickup snapshot, and COD collection state. Order-level status advances only from locked seller-portion state; mixed-seller progress remains visible per portion.
+### Admin order management reads and concurrency
 
-`POST /api/v1/orders/:orderId/cancel` accepts `{ "reason": "..." }`. It cancels only an owned order whose portions are still pending and whose payment does not require a refund. Active stock reservations are released exactly once. A paid order returns `409 PAID_CANCELLATION_REQUIRES_RETURN`.
+An admin can assign an external courier to a processing or shipped delivery portion with `PUT /api/v1/admin/orders/:orderId/suborders/:suborderId/delivery-assignment` and the exact body `{ "courierName": "Example Courier", "courierReference": "dispatch-123", "expectedVersion": 2 }`. The courier reference is an operations reference, not a provider credential. The response contains `data.assignment` (`suborderId`, `courierName`, `courierReference`, `assignedAt`, `updatedAt`) and `data.version`; refetch order detail for the canonical suborder version. `GET` on the same path returns `data.assignment`, which is `null` before assignment. The admin order detail also includes `deliveryAssignment` on each suborder. Assignment and reassignment require `status=processing|shipped` and `deliveryMethod=delivery`; pickup or completed delivery returns `409 DELIVERY_ASSIGNMENT_UNAVAILABLE`. A stale `expectedVersion` returns `409 STALE_SELLER_ORDER_VERSION`. Every change is stored in `delivery_assignment_events`. Assignment does not itself transition fulfilment status or contact a courier provider.
+
+`GET /api/v1/admin/orders?page=1&limit=20` requires an admin bearer token. It accepts optional `status` (order status) and `paymentMethod=paystack|cod`, returns `data.orders` and `meta.pagination`, and sorts by newest order then ID. Each summary contains `id`, `status`, `paymentMethod`, `currency`, `grandTotalMinor` (decimal string), `deliveryMethod`, `createdAt`, and `updatedAt`. `GET /api/v1/admin/orders/:orderId` returns `data.order` with those fields plus `deliveryTotalMinor`, redacted `delivery`, and `suborders`. Each suborder includes `sellerId`, `id`, `orderId`, `status`, `version`, `allowedTransitions`, totals, items, and timeline. Customer name, phone, street address, and identity values are omitted. A missing order returns `404 ORDER_NOT_FOUND`.
+
+The admin status PATCH requires `{ "status": "delivered", "expectedVersion": 3, "reason": "Carrier confirmed delivery" }`. Read `expectedVersion` from the selected suborder in admin detail. The server compares it under the order/suborder lock. A stale value returns `409 STALE_SELLER_ORDER_VERSION` with `details.currentVersion`; refetch detail and present the new state before another action. Successful PATCH returns `data.fulfilment` (aggregate progress); refetch admin detail to get the next suborder version. `allowedTransitions` reflects method and payment constraints, but a final server check still governs actions. Admins may advance `pending → processing`, `processing → shipped` for delivery or `processing → ready_for_pickup` for pickup, `shipped → delivered`, and `ready_for_pickup → picked_up`. Admin cancellation is for eligible COD portions only; Paystack cancellations use the return/refund flow. Every successful transition records an audit event.
+
+`GET /api/v1/orders/:orderId/fulfilment` accepts either the owning customer bearer token or the guest order's `X-Order-Tracking-Token`. It returns aggregate status, seller portions, the immutable Lagos delivery estimate or pickup snapshot, COD collection state, and a chronological `timeline`. Order-level status advances only from locked seller-portion state; mixed-seller progress remains visible per portion. Timeline entries deliberately omit staff/user identifiers.
+
+```json
+{
+  "success": true,
+  "data": {
+    "fulfilment": {
+      "orderId": "90000000-0000-4000-8000-000000000001",
+      "status": "shipped",
+      "deliveryMethod": "delivery",
+      "destination": { "method": "delivery", "zone": { "name": "Ikeja", "estimate": { "minBusinessDays": 1, "maxBusinessDays": 3 } } },
+      "suborders": [{ "id": "92000000-0000-4000-8000-000000000001", "sellerId": "20000000-0000-4000-8000-000000000001", "status": "shipped", "fulfilledAt": null }],
+      "timeline": [
+        { "id": "order:41", "type": "order_status", "suborderId": null, "fromStatus": null, "toStatus": "awaiting_payment", "reason": "order_created", "createdAt": "2026-11-10T12:00:00.000Z" },
+        { "id": "suborder:17", "type": "suborder_status", "suborderId": "92000000-0000-4000-8000-000000000001", "fromStatus": "processing", "toStatus": "shipped", "reason": null, "createdAt": "2026-11-10T15:00:00.000Z" }
+      ],
+      "codCollection": null,
+      "codEarningsEligible": false
+    }
+  },
+  "meta": { "requestId": "request-id" }
+}
+```
+
+`POST /api/v1/orders/:orderId/cancel` accepts `{ "reason": "..." }`. It cancels only an owned order whose portions are still pending and whose payment does not require a refund. Active stock reservations are released exactly once. Once any seller starts processing, cancellation returns `409 ORDER_CANCELLATION_TOO_LATE`. A paid order returns `409 PAID_CANCELLATION_REQUIRES_RETURN`; the customer must use the item-level return workflow after fulfilment instead. Sellers have no cancellation or refund route.
 
 ## COD collection
 
@@ -39,9 +141,36 @@ The order must be a delivered/picked-up COD order and the amount must equal its 
 }
 ```
 
-Items must belong to the owned order, their seller portion must be delivered or picked up, the configured window must remain open, and cumulative non-rejected return quantities cannot exceed the purchase. Identical key/input replays return `200`; a changed replay returns `409`. `GET /api/v1/orders/:orderId/returns` exposes review and refund outcomes.
+`orderItemId` comes from the owned order detail/list response. Items must belong to the owned order, their seller portion must be delivered or picked up, the configured window must remain open, and cumulative non-rejected return quantities cannot exceed the purchase. Identical key/input replays return `200`; a changed replay returns `409`.
+
+The current return contract accepts item quantities and a text reason only. It does not accept evidence URLs or files: durable production object storage and an upload authorization/retention contract remain open release gates. Frontends must not upload return evidence elsewhere or send undocumented fields; Zod rejects additional properties with `400`.
+
+Creation returns `data.returnRequest` plus `data.idempotentReplay`. `GET /api/v1/orders/:orderId/returns` returns the same records under `data.returns`:
+
+```json
+{
+  "id": "93000000-0000-4000-8000-000000000001",
+  "orderId": "90000000-0000-4000-8000-000000000001",
+  "reason": "Item differs from description",
+  "status": "requested",
+  "adminNote": null,
+  "items": [{
+    "orderItemId": "91000000-0000-4000-8000-000000000001",
+    "quantity": 1,
+    "itemRefundMinor": 100000,
+    "commissionReversalMinor": 0,
+    "sellerReversalMinor": 100000,
+    "stockDisposition": "pending"
+  }],
+  "refund": null,
+  "createdAt": "2026-11-10T16:00:00.000Z",
+  "updatedAt": "2026-11-10T16:00:00.000Z"
+}
+```
 
 ## Admin review and Paystack refunds
+
+`GET /api/v1/admin/returns?page=1&limit=20` requires an admin bearer token and returns `data.returns` with `meta.pagination`. Optional filters are `status=requested|approved|rejected|refund_pending|refund_failed|refunded` and `orderId` (UUID). Summaries contain `id`, `orderId`, `status`, `reason`, `actionable` (true only for `requested`), `createdAt`, and `updatedAt`, sorted newest first with ID as a tie breaker. `GET /api/v1/admin/returns/:returnRequestId` returns `data.returnRequest` in the same shape as the owned order return read, including exact items, stock disposition, and refund state. The admin role is required (`403`); unknown IDs return `404 RETURN_REQUEST_NOT_FOUND`. These reads have no provider side effect. Read canonical detail before presenting an approval action; a requested status does not guarantee that policy and provider gates will permit approval.
 
 `REFUND_DELIVERY_MODE` has no production default. Allowed reviewed values are `never` and `full_order`; approval fails closed while unset. A full-order delivery refund is included only when cumulative approved quantities cover the complete order. Item refunds always use immutable unit prices. Commission reversals use cumulative proportional allocation and the final unit receives any rounding remainder, so full refunds exactly reverse the snapshotted commission.
 

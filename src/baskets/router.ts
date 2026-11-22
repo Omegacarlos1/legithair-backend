@@ -72,6 +72,18 @@ export function createBasketRouter(pool: Pool, guestTtlDays: number, quoteTtlSec
   router.get('/delivery-options', asyncRoute(async (req, res) => {
     res.json({ success: true, data: await baskets.listDeliveryOptions(), meta: { requestId: req.id } });
   }));
+  router.get('/admin/delivery-zones', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { zones: await baskets.listAdminZones() }, meta: { requestId: req.id } });
+  }));
+  router.get('/admin/delivery-zones/:zoneId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { zone: await baskets.getAdminZone(z.uuid().parse(req.params.zoneId)) }, meta: { requestId: req.id } });
+  }));
+  router.get('/admin/pickup-locations', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { pickupLocations: await baskets.listAdminPickups() }, meta: { requestId: req.id } });
+  }));
+  router.get('/admin/pickup-locations/:pickupLocationId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
+    res.json({ success: true, data: { pickupLocation: await baskets.getAdminPickup(z.uuid().parse(req.params.pickupLocationId)) }, meta: { requestId: req.id } });
+  }));
   router.patch('/admin/delivery-zones/:zoneId', authenticated, requireRole('admin'), asyncRoute(async (req, res) => {
     const result = await baskets.updateZone(req.authUser!.id, z.uuid().parse(req.params.zoneId), zoneUpdateSchema.parse(req.body));
     res.json({ success: true, data: { zone: result }, meta: { requestId: req.id } });

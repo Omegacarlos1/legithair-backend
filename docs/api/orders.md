@@ -35,6 +35,34 @@ Use either the owning customer bearer token or `X-Order-Tracking-Token`. Missing
 
 The response returns order and suborder states, immutable product names/prices/quantities, per-line commission basis/rate/amount, delivery snapshots, totals, and reservation status. Delivery fees remain company revenue and are excluded from seller net calculations.
 
+## List the authenticated customer's orders
+
+`GET /api/v1/orders?page=1&limit=20&status=delivered`
+
+This route requires a customer bearer token; guest tracking credentials are intentionally single-order credentials and cannot list orders. `page` defaults to `1`, `limit` defaults to `20` and is capped at `100`, and `status` is optional. Results are ordered newest first and are owner-scoped before pagination.
+
+```json
+{
+  "success": true,
+  "data": {
+    "orders": [{
+      "id": "90000000-0000-4000-8000-000000000001",
+      "paymentMethod": "paystack",
+      "status": "delivered",
+      "currency": "NGN",
+      "deliveryMethod": "delivery",
+      "totals": { "itemsSubtotalMinor": 100000, "deliveryTotalMinor": 5000, "grandTotalMinor": 105000 },
+      "items": [{ "id": "91000000-0000-4000-8000-000000000001", "productId": "40000000-0000-4000-8000-000000000051", "productName": "Synthetic Straight Wig", "quantity": 1, "unitPriceMinor": 100000, "lineTotalMinor": 100000 }],
+      "createdAt": "2026-11-10T12:00:00.000Z",
+      "updatedAt": "2026-11-10T12:30:00.000Z"
+    }]
+  },
+  "meta": { "requestId": "request-id", "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 } }
+}
+```
+
+An empty history returns `200` with `orders: []` and zero pagination totals. Invalid query values return `400`; missing authentication returns `401`; a non-customer account returns `403`.
+
 ## Reservation expiry and status rules
 
 Run `npm run orders:release-expired` from a scheduler. It finds persisted due reservations, locks each order, restores product stock only for rows still `active`, marks them `released`, and records an `order_status_events` row. Concurrent or repeated workers release each reservation once.

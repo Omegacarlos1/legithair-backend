@@ -114,6 +114,11 @@ export function createCatalogRouter(pool: Pool, imageStorageRoot: string, imageM
     const productId = z.uuid().parse(req.params.productId);
     res.json({ success: true, data: { product: await catalog.updateOwnProduct(req.authUser!.id, productId, productUpdateSchema.parse(req.body)) }, meta: { requestId: req.id } });
   }));
+  router.delete('/seller/products/:productId', authenticated, requireRole('seller'), asyncRoute(async (req, res) => {
+    const productId = z.uuid().parse(req.params.productId);
+    await catalog.archiveOwnProduct(req.authUser!.id, productId);
+    res.status(204).send();
+  }));
   router.patch('/seller/products/:productId/publication', authenticated, requireRole('seller'), asyncRoute(async (req, res) => {
     const productId = z.uuid().parse(req.params.productId);
     const body = publicationSchema.parse(req.body);

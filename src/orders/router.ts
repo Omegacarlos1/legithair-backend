@@ -8,6 +8,12 @@ import type { OrderAccess, OrderOwner, OrderPolicy } from './types.js';
 
 const credential = z.string().min(32).max(200).regex(/^[A-Za-z0-9_-]+$/);
 const createSchema = z.object({ quoteId: z.uuid(), paymentMethod: z.enum(['paystack', 'cod']) }).strict();
+const orderStatusSchema = z.enum(['awaiting_payment', 'awaiting_collection', 'paid', 'payment_failed', 'reservation_expired', 'cancelled', 'processing', 'shipped', 'delivered', 'returned', 'refunded']);
+const listSchema = z.object({
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  status: orderStatusSchema.optional()
+}).strict();
 const asyncRoute = (handler: RequestHandler): RequestHandler => (req, res, next) => { Promise.resolve(handler(req, res, next)).catch(next); };
 
 export function createOrderRouter(pool: Pool, policy: OrderPolicy): Router {
@@ -15,8 +21,8 @@ export function createOrderRouter(pool: Pool, policy: OrderPolicy): Router {
   const auth = new AuthService(pool);
   const orders = new OrderService(pool, policy);
 
-  const authenticateCustomer = async (authorization: string): Promise<string> => {
-    if (!authorization.startsWith('Bearer ')) throw new AppError(401, 'UNAUTHENTICATED', 'Authentication is required');
+  const authenticateCustomer = async (authorization: string | undefined): Promise<string> => {
+    if (!authorization?.startsWith('Bearer ')) throw new AppError(401, 'UNAUTHENTICATED', 'Authentication is required');
     const user = await auth.authenticate(authorization.slice(7));
     if (!user.roles.includes('customer')) throw new AppError(403, 'CUSTOMER_ROLE_REQUIRED', 'The customer role is required');
     return user.id;
@@ -38,6 +44,11 @@ export function createOrderRouter(pool: Pool, policy: OrderPolicy): Router {
     throw new AppError(401, 'ORDER_ACCESS_REQUIRED', 'Customer authentication or X-Order-Tracking-Token is required');
   };
 
+  router.get('/orders', asyncRoute(async (req, res) => {
+    const query = listSchema.parse(req.query);
+    const result = await orders.listCustomerOrders(await authenticateCustomer(req.header('authorization')), query);
+    res.json({ success: true, data: { orders: result.orders }, meta: { requestId: req.id, pagination: result.pagination } });
+  }));
   router.post('/orders', asyncRoute(async (req, res) => {
     const input = createSchema.parse(req.body);
     const result = await orders.createOrder(await createOwner(req), input.quoteId, input.paymentMethod, idempotencyKey(req.header('idempotency-key')));
